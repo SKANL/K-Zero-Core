@@ -1,0 +1,56 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.pytest_cache/
+.mypy_cache/
+.coverage
+.tox/
+.nox/
+.cache/
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# --- Project Specific Data ---
+# Ignoramos sesiones de chat y base de datos vectorial local (ChromaDB)
+data/sessions/
+data/vector_store/
+data/braindump_*.md
+
+# Mantener la carpeta data pero ignorar su contenido exceptuando prompts.json si fuera necesario
+# (En este caso prompts.json es parte del código/config, así que no lo ignoramos)
+
+# --- Configuration / Secrets ---
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+auth.json
+
+# --- IDEs / Editors ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+
+# --- OS ---
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

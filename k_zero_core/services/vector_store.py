@@ -1,0 +1,105 @@
+"""
+Wrapper sobre ChromaDB PersistentClient para almacenar y buscar embeddings de documentos.
+
+Usa embeddings pre-computados (provistos por Ollama) en lugar del sistema de
+embedding interno de ChromaDB. Los datos se persisten en VECTOR_STORE_DIR.
+"""
+import chromadb
+from typing import List
+
+from k_zero_core.core.config import VECTOR_STORE_DIR
+
+
+class VectorStore:
+    """
+    Almacén vectorial persistente basado en ChromaDB.
+
+    Cada documento indexado vive en su propia colección identificada por un hash
+    único del contenido del archivo. Esto permite que múltiples documentos coexistan
+    y que el mismo documento no sea re-indexado si ya existe.
+    """
+
+    def __init__(self) -> None:
+        self._client = chromadb.PersistentClient(path=str(VECTOR_STORE_DIR))
+
+    def collection_exists(self, collection_id: str) -> bool:
+        """
+        Verifica si ya existe una colección con datos para este ID.
+
+        Args:
+            collection_id: Identificador único de la colección (hash del archivo).
+
+        Returns:
+            True si la colección existe y tiene al menos un chunk almacenado.
+        """
+        try:
+            col = self._client.get_collection(name=collection_id)
+            return col.count() > 0
+        except Exception:
+            return False
+
+    def store(
+        self,
+        collection_id: str,
+        chunks: List[str],
+        embeddings: List[List[float]],
+    ) -> None:
+        """
+        Guarda los chunks y sus embeddings en una colección ChromaDB.
+        Usa upsert para idempotencia (si ya existe la colección, actualiza).
+
+        Args:
+            collection_id: Nombre de la colección (hash del archivo).
+            chunks: Lista de fragmentos de texto del documento.
+            embeddings: Vectores de embedding correspondientes a cada chunk.
+        """
+        collection = self._client.get_or_create_collection(
+            name=collection_id,
+            metadata={"hnsw:space": "cosine"},  # distancia coseno para similitud semántica
+            embedding_function=None,             # usamos embeddings pre-computados de Ollama
+        )
+        ids = [f"chunk-{i}" for i in range(len(chunks))]
+        collection.upsert(ids=ids, documents=chunks, embeddings=embeddings)
+
+    def search(
+        self,
+        collection_id: str,
+        query_embedding: List[float],
+        top_k: int = 3,
+    ) -> List[str]:
+        """
+        Busca los chunks más relevantes para el embedding de consulta.
+
+        Args:
+            collection_id: Colección donde buscar.
+            query_embedding: Vector de la consulta del usuario.
+            top_k: Número máximo de resultados a retornar.
+
+        Returns:
+            Lista de textos de los chunks más relevantes, ordenados por relevancia.
+        """
+        try:
+            collection = self._client.get_collection(name=collection_id)
+            n = min(top_k, collection.count())
+            if n == 0:
+                return []
+            results = collection.query(
+                query_embeddings=[query_embedding],
+                n_results=n,
+                include=["documents"],
+            )
+            return results["documents"][0] if results["documents"] else []
+        except Exception:
+            return []
+
+    def delete_collection(self, collection_id: str) -> None:
+        """
+        Elimina una colección y todos sus datos del vector store.
+
+        Args:
+            collection_id: ID de la colección a eliminar.
+        """
+        try:
+            self._client.delete_collection(name=collection_id)
+        except Exception:
+            pass

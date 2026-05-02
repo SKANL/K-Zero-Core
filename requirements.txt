@@ -1,0 +1,10 @@
+ollama
+faster-whisper
+edge-tts
+SpeechRecognition
+pygame
+pyaudio
+pypdf
+chromadb
+python-dotenv
+# numpy

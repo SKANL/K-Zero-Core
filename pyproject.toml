@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "k-zero-core"
+version = "0.1.0"
+description = "Core library for Voice, RAG, and local LLM orchestration."
+authors = [
+    { name = "K-Zero Developer" }
+]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "ollama",
+    "faster-whisper",
+    "edge-tts",
+    "SpeechRecognition",
+    "pygame",
+    "pyaudio",
+    "pypdf",
+    "chromadb",
+    "python-dotenv"
+]
+
+[project.scripts]
+# Esto permite que si alguien instala el paquete, pueda ejecutar 'k-zero' en su terminal
+k-zero = "k_zero_core.cli.console:run"
+
+[tool.setuptools.packages.find]
+include = ["k_zero_core*"]
