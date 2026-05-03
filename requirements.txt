@@ -7,4 +7,8 @@ pyaudio
 pypdf
 chromadb
 python-dotenv
-# numpy
+yt-dlp
+psutil
+soundcard
+PyAudioWPatch
+imageio-ffmpeg

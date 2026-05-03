@@ -20,11 +20,15 @@ coverage.xml
 *.py,cover
 .hypothesis/
 
+test_audio.py
+test_record.py
+
 # --- Project Specific Data ---
 # Ignoramos sesiones de chat y base de datos vectorial local (ChromaDB)
 data/sessions/
 data/vector_store/
 data/braindump_*.md
+data/transcripciones/
 
 # Mantener la carpeta data pero ignorar su contenido exceptuando prompts.json si fuera necesario
 # (En este caso prompts.json es parte del código/config, así que no lo ignoramos)

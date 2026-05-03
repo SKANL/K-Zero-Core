@@ -2,6 +2,7 @@ from typing import List, Optional, Dict, Any
 
 from k_zero_core.storage.prompt_manager import load_all_prompts, save_prompt, delete_prompt
 from k_zero_core.storage.session_manager import list_sessions, delete_session
+from k_zero_core.audio.sources import get_audio_devices
 
 # Keywords para detectar modelos de embedding dedicados vs modelos LLM genéricos
 _EMBEDDING_KEYWORDS = [
@@ -285,3 +286,73 @@ def choose_io_mode() -> tuple[str, str]:
 
     indice = _select_from_list(f"\nElige una opción (1 - {len(options)}): ", options)
     return options[indice]
+
+def choose_stt_config() -> dict:
+    """Prompt the user for Advanced STT configuration."""
+    config = {}
+    
+    # 1. Fuente de audio
+    print("\n=== Fuente de Audio para Transcripción ===")
+    fuentes = [
+        ("mic", "Micrófono (Walkie-Talkie - espera silencio)"),
+        ("mic_stream", "Micrófono (Streaming / Tiempo Real)"),
+        ("loopback", "Audio del Sistema Completo (Loopback / Grabar reuniones)"),
+        ("file", "Archivo Local (.mp3, .wav)"),
+        ("youtube", "URL de YouTube")
+    ]
+    for i, (_, label) in enumerate(fuentes):
+        print(f"{i + 1}. {label}")
+        
+    idx_fuente = _select_from_list(f"\nElige una opción (1 - {len(fuentes)}): ", fuentes)
+    fuente_key = fuentes[idx_fuente][0]
+    config['source'] = fuente_key
+    
+    if fuente_key in ['mic', 'mic_stream', 'loopback']:
+        # Seleccionar dispositivo específico
+        mics, loopbacks = get_audio_devices()
+        dispositivos = loopbacks if fuente_key == 'loopback' else mics
+        
+        if dispositivos:
+            print("\n=== Dispositivos Disponibles ===")
+            print("0. Dispositivo por Defecto del Sistema")
+            for i, (dev_idx, dev_name) in enumerate(dispositivos):
+                print(f"{i + 1}. {dev_name}")
+            
+            idx_dev = input(f"\nElige un dispositivo (0 - {len(dispositivos)}): ").strip()
+            try:
+                idx_dev = int(idx_dev)
+                if idx_dev > 0 and idx_dev <= len(dispositivos):
+                    config['device_index'] = dispositivos[idx_dev - 1][0]
+                else:
+                    config['device_index'] = None
+            except ValueError:
+                config['device_index'] = None
+        else:
+            print(f"⚠️ No se detectaron dispositivos de {'loopback' if fuente_key == 'loopback' else 'micrófono'}. Se usará el por defecto.")
+            config['device_index'] = None
+            
+    elif fuente_key == 'file':
+        filepath = input("\nIntroduce la ruta absoluta del archivo de audio: ").strip()
+        config['filepath'] = filepath
+        
+    elif fuente_key == 'youtube':
+        url = input("\nIntroduce la URL de YouTube: ").strip()
+        config['youtube_url'] = url
+
+    # 2. Modelo Whisper
+    print("\n=== Tamaño del Modelo de Whisper ===")
+    modelos = ["tiny", "base", "small", "medium", "large-v3"]
+    for i, m in enumerate(modelos):
+        print(f"{i + 1}. {m}")
+    idx_mod = _select_from_list(f"\nElige un modelo (1 - {len(modelos)}): ", modelos)
+    config['model_size'] = modelos[idx_mod]
+    
+    # 3. Idioma
+    print("\n=== Idioma de Transcripción ===")
+    idiomas = [("es", "Español (Más rápido)"), ("en", "Inglés"), (None, "Autodetectar (Penalización de latencia)")]
+    for i, (_, label) in enumerate(idiomas):
+        print(f"{i + 1}. {label}")
+    idx_lang = _select_from_list(f"\nElige un idioma (1 - {len(idiomas)}): ", idiomas)
+    config['language'] = idiomas[idx_lang][0]
+
+    return config

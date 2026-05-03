@@ -20,63 +20,84 @@ def run() -> None:
     plugin = None
 
     try:
-        # 1. Elegir proveedor de IA (se omite el menú si solo hay uno)
-        provider = choose_provider()
-
-        # 2. Elegir modo de interacción
+        # 1. Elegir modo de interacción primero (para saber qué necesita)
         mode_key = choose_mode()
         plugin = MODE_REGISTRY[mode_key]()
 
+        # 2. Elegir proveedor de IA (se omite si no requiere LLM)
+        provider = None
+        if plugin.requires_llm:
+            provider = choose_provider()
+
         # 3. Elegir estrategia de I/O
-        input_type, output_type = choose_io_mode()
-
-        # 4. Gestionar sesiones
-        session_id = manage_sessions()
-        chat = ChatSession(session_id=session_id, provider=provider)
-
-        if session_id:
-            # Reanudar sesión — restaurar modelo y proveedor guardados
-            session_data = load_session(session_id)
-            saved_provider_key = session_data.get("provider", "ollama")
-
-            # Si el proveedor guardado difiere del seleccionado, respetar el guardado
-            if saved_provider_key != provider.key:
-                chat.provider = get_provider(saved_provider_key)
-                print(f"(Restaurando proveedor '{saved_provider_key}' de la sesión guardada)")
-
-            chat.model = session_data.get("model", "")
-            chat.metadata = session_data.get("metadata", {})
-            chat.load_history(session_data.get("messages", []))
-            print(f"\nRetomando sesión con {chat.model} ({chat.provider.get_display_name()}) en modo {plugin.get_name()}...")
+        if plugin.force_input_type:
+            input_type = plugin.force_input_type
+            output_type = "text" # por defecto en modos de solo entrada
+            print(f"\n[Info] El modo '{plugin.get_name()}' forzará la entrada de {input_type}.")
         else:
-            # Nueva sesión
-            chat.model = choose_model(provider)
+            input_type, output_type = choose_io_mode()
 
-            print("\n(Opcional) Puedes elegir un System Prompt guardado, o usar el que viene por defecto para este Modo.")
-            sys_prompt = choose_system_prompt(plugin.get_default_system_prompt() or "")
+        # 4. Gestionar sesiones (solo si requiere LLM)
+        if plugin.requires_llm:
+            session_id = manage_sessions()
+            chat = ChatSession(session_id=session_id, provider=provider)
 
-            if sys_prompt:
-                chat.set_system_prompt(sys_prompt)
-                print("System prompt personalizado cargado.")
+            if session_id:
+                # Reanudar sesión — restaurar modelo y proveedor guardados
+                session_data = load_session(session_id)
+                saved_provider_key = session_data.get("provider", "ollama")
+
+                # Si el proveedor guardado difiere del seleccionado, respetar el guardado
+                if saved_provider_key != provider.key:
+                    chat.provider = get_provider(saved_provider_key)
+                    print(f"(Restaurando proveedor '{saved_provider_key}' de la sesión guardada)")
+
+                chat.model = session_data.get("model", "")
+                chat.metadata = session_data.get("metadata", {})
+                chat.load_history(session_data.get("messages", []))
+                print(f"\nRetomando sesión con {chat.model} ({chat.provider.get_display_name()}) en modo {plugin.get_name()}...")
             else:
-                default_prompt = plugin.get_default_system_prompt()
-                if default_prompt:
-                    chat.set_system_prompt(default_prompt)
-                    print("System prompt por defecto del modo cargado.")
+                # Nueva sesión
+                chat.model = choose_model(provider)
 
-            print(f"\n--- Iniciando nuevo chat con {chat.model} ({chat.provider.get_display_name()}) ---")
+                print("\n(Opcional) Puedes elegir un System Prompt guardado, o usar el que viene por defecto para este Modo.")
+                sys_prompt = choose_system_prompt(plugin.get_default_system_prompt() or "")
+
+                if sys_prompt:
+                    chat.set_system_prompt(sys_prompt)
+                    print("System prompt personalizado cargado.")
+                else:
+                    default_prompt = plugin.get_default_system_prompt()
+                    if default_prompt:
+                        chat.set_system_prompt(default_prompt)
+                        print("System prompt por defecto del modo cargado.")
+
+                print(f"\n--- Iniciando nuevo chat con {chat.model} ({chat.provider.get_display_name()}) ---")
+        else:
+            chat = None
+            print(f"\n--- Iniciando {plugin.get_name()} ---")
 
         # 5. Inicializar hardware de audio solo si es necesario
         stt = None
         tts = None
+        stt_config = {}
         if input_type == 'audio':
             from k_zero_core.audio.stt import SpeechTranscriber
-            stt = SpeechTranscriber()
+            from k_zero_core.audio.config import WhisperConfig
+            from k_zero_core.cli.menus import choose_stt_config
+            stt_config = choose_stt_config()
+            # Construir WhisperConfig desde la selección del menú, usando env-vars como base
+            whisper_cfg = WhisperConfig.from_env()
+            whisper_cfg.model_size = stt_config.get('model_size') or whisper_cfg.model_size
+            whisper_cfg.language = stt_config.get('language')  # None = autodetect
+            stt = SpeechTranscriber(config=whisper_cfg)
         if output_type == 'audio':
             from k_zero_core.audio.tts import TextToSpeech
-            tts = TextToSpeech(default_voice=plugin.get_voice())
+            from k_zero_core.audio.config import TtsConfig
+            tts_cfg = TtsConfig(voice=plugin.get_voice())
+            tts = TextToSpeech(config=tts_cfg)
 
-        io_handler = IOHandler(input_type, output_type, stt, tts)
+        io_handler = IOHandler(input_type, output_type, stt, tts, stt_config)
 
         # 6. Ejecutar el modo
         try:

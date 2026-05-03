@@ -14,6 +14,16 @@ class BaseMode(ABC):
         """Return the display name of the mode."""
         pass
 
+    @property
+    def requires_llm(self) -> bool:
+        """Determina si este modo interactúa con un LLM."""
+        return True
+        
+    @property
+    def force_input_type(self) -> Optional[str]:
+        """Fuerza un tipo de entrada específico ('audio' o 'text'). None si es libre."""
+        return None
+
     @abstractmethod
     def get_description(self) -> str:
         """Return a short description of the mode."""

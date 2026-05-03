@@ -20,7 +20,12 @@ dependencies = [
     "pyaudio",
     "pypdf",
     "chromadb",
-    "python-dotenv"
+    "python-dotenv",
+    "yt-dlp",
+    "psutil",
+    "soundcard",
+    "PyAudioWPatch",
+    "imageio-ffmpeg"
 ]
 
 [project.scripts]
