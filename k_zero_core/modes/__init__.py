@@ -17,6 +17,7 @@ from k_zero_core.modes.agent import AgentMode
 from k_zero_core.modes.brain_dump import BrainDumpMode
 from k_zero_core.modes.rag import DocumentRAGMode
 from k_zero_core.modes.transcription_only import TranscriptionOnlyMode
+from k_zero_core.modes.director import DirectorMode
 
 # El orden de inserción determina el orden en el menú.
 MODE_REGISTRY: dict[str, Type[BaseMode]] = {
@@ -25,6 +26,7 @@ MODE_REGISTRY: dict[str, Type[BaseMode]] = {
     "companion":      VoiceCompanionMode,
     "dungeon_master": DungeonMasterMode,
     "agent":          AgentMode,
+    "director":       DirectorMode,
     "brain_dump":     BrainDumpMode,
     "rag":            DocumentRAGMode,
 }

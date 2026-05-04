@@ -70,9 +70,14 @@ class RagEngine:
 
         print(f"  Generando embeddings con '{self.embedding_model}'...")
         try:
-            # Una sola llamada batch — mucho más eficiente que N llamadas individuales
-            response = ollama.embed(model=self.embedding_model, input=prefixed)
-            embeddings = response.embeddings  # List[List[float]]
+            BATCH_SIZE = 50
+            all_embeddings = []
+            # Dividir en lotes para no sobrecargar a Ollama (evita errores OOM en documentos grandes)
+            for i in range(0, len(prefixed), BATCH_SIZE):
+                batch = prefixed[i:i + BATCH_SIZE]
+                response = ollama.embed(model=self.embedding_model, input=batch)
+                all_embeddings.extend(response.embeddings)
+            embeddings = all_embeddings  # List[List[float]]
         except Exception as e:
             raise OllamaConnectionError(f"Error generando embeddings: {e}")
 
@@ -109,10 +114,8 @@ class RagEngine:
 
     def _chunk_text(self, text: str) -> List[str]:
         """
-        Divide el texto en bloques de CHUNK_SIZE palabras con CHUNK_OVERLAP de solapamiento.
-
-        Opera a nivel de palabras para no cortar tokens en la mitad. El solapamiento
-        asegura que el contexto en los bordes de un chunk no se pierda.
+        Divide el texto en bloques de aproximadamente CHUNK_SIZE palabras con CHUNK_OVERLAP de solapamiento.
+        Respeta límites de oraciones (puntuación) para no romper el sentido semántico.
 
         Args:
             text: Texto completo a dividir.
@@ -120,11 +123,39 @@ class RagEngine:
         Returns:
             Lista de bloques de texto.
         """
-        words = text.split()
-        step = self.CHUNK_SIZE - self.CHUNK_OVERLAP
+        import re
+        
+        # Dividir por signos de puntuación finales (., \n\n, ?, !) manteniendo delimitadores
+        sentences_raw = re.split(r'(?<=[.?!])\s+|\n\n+', text)
+        sentences = [s.strip() for s in sentences_raw if s.strip()]
+        
         chunks = []
-        for i in range(0, len(words), step):
-            chunk = " ".join(words[i : i + self.CHUNK_SIZE])
-            if chunk.strip():
-                chunks.append(chunk)
+        current_chunk = []
+        current_words = 0
+        
+        for sentence in sentences:
+            words = sentence.split()
+            word_count = len(words)
+            
+            if current_words + word_count > self.CHUNK_SIZE and current_chunk:
+                chunks.append(" ".join(current_chunk))
+                # Mantener oraciones finales para solapamiento
+                overlap_chunk = []
+                overlap_words = 0
+                for s in reversed(current_chunk):
+                    s_words = len(s.split())
+                    if overlap_words + s_words <= self.CHUNK_OVERLAP:
+                        overlap_chunk.insert(0, s)
+                        overlap_words += s_words
+                    else:
+                        break
+                current_chunk = overlap_chunk
+                current_words = overlap_words
+                
+            current_chunk.append(sentence)
+            current_words += word_count
+            
+        if current_chunk:
+            chunks.append(" ".join(current_chunk))
+            
         return chunks

@@ -11,6 +11,7 @@ from k_zero_core.services.providers import get_provider
 from k_zero_core.storage.session_manager import load_session, save_session
 from k_zero_core.core.exceptions import APIVoiceException
 from k_zero_core.audio.io_handler import IOHandler
+from k_zero_core.core.plugin_loader import load_external_plugins
 
 
 def _setup_chat_session(plugin, provider, session_id: Optional[str]) -> ChatSession:
@@ -79,6 +80,10 @@ def _setup_io_handler(input_type: str, output_type: str, plugin) -> IOHandler:
 
 def run() -> None:
     """Main entry point for the CLI."""
+    
+    # 0. Cargar plugins dinámicos primero
+    load_external_plugins()
+    
     print("Bienvenido a Ollama CLI")
 
     chat = None

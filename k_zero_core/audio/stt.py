@@ -153,14 +153,15 @@ class SpeechTranscriber:
 
     def _load_model(self) -> WhisperModel:
         """
-        Carga el modelo Whisper con fallback a CPU si CUDA falla.
-
-        Returns:
-            Instancia de WhisperModel lista para transcribir.
-
-        Raises:
-            APIVoiceException: Si el modelo no puede cargarse ni siquiera en CPU.
+        Carga el modelo Whisper con fallback a CPU si CUDA falla o si estamos en Mac.
         """
+        import platform
+        # Detectar Mac explícitamente para evitar intentar CUDA
+        if platform.system() == "Darwin":
+            self._device = "cpu"
+            # Faster-Whisper usa Accelerate en CPU (Mac) de forma nativa
+            self._compute_type = "int8"
+
         try:
             return WhisperModel(
                 self.config.model_size,
@@ -310,14 +311,14 @@ class SpeechTranscriber:
             if not is_loopback:
                 self._adjust_ambient_noise(source)
 
-            # Pause threshold corto para obtener frases rápidamente
+            # Permitir mayor pausa en modo streaming para no cortar al usuario mientras respira
             # Invariante: pause_threshold >= non_speaking_duration
-            self.recognizer.pause_threshold = 0.4
-            self.recognizer.non_speaking_duration = 0.3
+            self.recognizer.pause_threshold = 0.8
+            self.recognizer.non_speaking_duration = 0.5
 
             print("🎙️  [Streaming] Habla ahora... (Silencio de 2s para terminar)")
             stop_listening = self.recognizer.listen_in_background(
-                source, _on_audio_captured, phrase_time_limit=10
+                source, _on_audio_captured, phrase_time_limit=15
             )
 
             final_text: list[str] = []

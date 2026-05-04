@@ -69,6 +69,11 @@ class DocumentRAGMode(BaseMode):
             if engine.is_indexed(existing_collection_id):
                 self._rag_engine = engine
                 self._collection_id = existing_collection_id
+                
+                # Inyectar el engine a la tool de búsqueda RAG
+                from k_zero_core.core.tools.rag_search import set_active_rag
+                set_active_rag(engine, existing_collection_id)
+                
                 print(f"📚 Índice vectorial encontrado. Documento listo para preguntas.")
                 if existing_file_path:
                     print(f"   Archivo: {existing_file_path}")
@@ -106,6 +111,10 @@ class DocumentRAGMode(BaseMode):
 
                 self._rag_engine = engine
                 self._collection_id = collection_id
+
+                # Inyectar el engine a la tool de búsqueda RAG
+                from k_zero_core.core.tools.rag_search import set_active_rag
+                set_active_rag(engine, collection_id)
 
                 # Persistir metadata para poder recuperar el índice al reanudar sesión
                 chat_session.metadata.update({

@@ -17,7 +17,9 @@ DATA_DIR = Path(_env_data_dir) if _env_data_dir else Path.home() / ".k_zero"
 PROMPTS_FILE = DATA_DIR / "prompts.json"
 SESSIONS_DIR = DATA_DIR / "sessions"
 VECTOR_STORE_DIR = DATA_DIR / "vector_store"
+PLUGINS_DIR = DATA_DIR / "plugins"
 
 # Crear directorios en el primer uso
 SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
 VECTOR_STORE_DIR.mkdir(parents=True, exist_ok=True)
+PLUGINS_DIR.mkdir(parents=True, exist_ok=True)

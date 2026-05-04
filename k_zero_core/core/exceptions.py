@@ -13,3 +13,7 @@ class NoModelsFoundError(APIVoiceException):
 class StorageError(APIVoiceException):
     """Raised when there is an issue reading or writing local data."""
     pass
+
+class WebToolError(APIVoiceException):
+    """Raised when a web scraping or search tool fails due to network or parsing issues."""
+    pass

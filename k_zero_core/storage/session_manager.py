@@ -79,6 +79,24 @@ def list_sessions() -> List[Dict[str, Any]]:
     return sessions
 
 
+def get_all_active_collections() -> set[str]:
+    """Retorna un set con todos los rag_collection_id usados en las sesiones actuales."""
+    if not SESSIONS_DIR.exists():
+        return set()
+
+    active_ids = set()
+    for path in SESSIONS_DIR.glob("*.json"):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            metadata = data.get("metadata", {})
+            col_id = metadata.get("rag_collection_id")
+            if col_id:
+                active_ids.add(col_id)
+        except Exception:
+            continue
+    return active_ids
+
+
 def delete_session(session_id: str) -> bool:
     """Delete a session file. Returns True if deleted, False if not found."""
     path = _get_session_path(session_id)

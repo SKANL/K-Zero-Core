@@ -103,3 +103,27 @@ class VectorStore:
             self._client.delete_collection(name=collection_id)
         except Exception:
             pass
+
+    def cleanup_orphan_collections(self, active_ids: set[str]) -> int:
+        """
+        Busca y elimina todas las colecciones cuyos IDs no estén en active_ids.
+        Útil para el Garbage Collection de la CLI.
+        
+        Args:
+            active_ids: Set de IDs de colecciones que deben conservarse.
+            
+        Returns:
+            Número de colecciones eliminadas.
+        """
+        deleted_count = 0
+        try:
+            collections = self._client.list_collections()
+            for col in collections:
+                # El objeto devuelto por list_collections tiene un atributo .name
+                col_name = getattr(col, "name", col) if not isinstance(col, str) else col
+                if col_name not in active_ids:
+                    self._client.delete_collection(name=col_name)
+                    deleted_count += 1
+        except Exception as e:
+            print(f"⚠️ Error limpiando colecciones en ChromaDB: {e}")
+        return deleted_count

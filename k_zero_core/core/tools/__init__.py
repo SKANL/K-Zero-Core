@@ -27,6 +27,9 @@ from k_zero_core.core.tools.matematica import calcular_matematica
 from k_zero_core.core.tools.filesystem import leer_archivo, listar_directorio
 from k_zero_core.core.tools.sistema import informacion_sistema
 from k_zero_core.core.tools.analisis_json import analizar_valores_json
+from k_zero_core.core.tools.web_search import buscar_en_internet, buscar_tavily
+from k_zero_core.core.tools.web_reader import leer_pagina_web, extraer_wikipedia
+from k_zero_core.core.tools.rag_search import buscar_en_documentos_locales
 
 # Registro de todas las tools disponibles
 # Para desactivar una tool, simplemente coméntala aquí
@@ -37,6 +40,11 @@ _ALL_TOOLS: List[Callable] = [
     listar_directorio,
     informacion_sistema,
     analizar_valores_json,
+    buscar_en_internet,
+    buscar_tavily,
+    leer_pagina_web,
+    extraer_wikipedia,
+    buscar_en_documentos_locales,
 ]
 
 
