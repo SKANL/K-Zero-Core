@@ -146,14 +146,10 @@ class SpeechTranscriber:
         if device:
             return device, "float16" if device == "cuda" else "int8"
 
-        try:
-            import torch
-            if torch.cuda.is_available():
-                return "cuda", "float16"
-        except ImportError:
-            pass
-
-        return "cpu", "int8"
+        # Por defecto, intentamos CUDA primero.
+        # Si la máquina no tiene GPU o fallan las librerías,
+        # _load_model se encargará de hacer el fallback seguro a CPU.
+        return "cuda", "float16"
 
     def _load_model(self) -> WhisperModel:
         """
