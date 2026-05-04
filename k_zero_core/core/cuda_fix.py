@@ -33,23 +33,27 @@ def fix_cuda_paths():
             if "site-packages" in p and p not in search_paths:
                 search_paths.append(p)
                 
+        from pathlib import Path
+        
         # Forzar chequeo relativo al ejecutable actual (crucial para entornos virtuales uv/venv)
-        exe_dir = os.path.dirname(sys.executable)
-        venv_site = os.path.join(os.path.dirname(exe_dir), "Lib", "site-packages")
+        exe_path = Path(sys.executable)
+        venv_site = str(exe_path.parent.parent / "Lib" / "site-packages")
         if venv_site not in search_paths:
             search_paths.append(venv_site)
 
         for base_path in search_paths:
-            nvidia_base = os.path.join(base_path, "nvidia")
-            if os.path.isdir(nvidia_base):
+            nvidia_base = Path(base_path) / "nvidia"
+            if nvidia_base.is_dir():
                 # Iterar sobre todos los módulos de nvidia (cublas, cudnn, cuda_runtime, etc.)
-                for module_name in os.listdir(nvidia_base):
-                    bin_path = os.path.join(nvidia_base, module_name, "bin")
-                    if os.path.isdir(bin_path):
-                        # 1. Inyectar en el sistema de Python
-                        if hasattr(os, "add_dll_directory"):
-                            dll_handles.append(os.add_dll_directory(bin_path))
-                        # 2. Inyectar en el PATH nativo (Crucial para C++)
-                        os.environ["PATH"] = bin_path + os.pathsep + os.environ.get("PATH", "")
+                for module_path in nvidia_base.iterdir():
+                    if module_path.is_dir():
+                        bin_path = module_path / "bin"
+                        if bin_path.is_dir():
+                            bin_str = str(bin_path)
+                            # 1. Inyectar en el sistema de Python
+                            if hasattr(os, "add_dll_directory"):
+                                dll_handles.append(os.add_dll_directory(bin_str))
+                            # 2. Inyectar en el PATH nativo (Crucial para C++)
+                            os.environ["PATH"] = bin_str + os.pathsep + os.environ.get("PATH", "")
     except Exception as e:
         print(f"Error inicializando CUDA paths: {e}")

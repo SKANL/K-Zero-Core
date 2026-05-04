@@ -99,8 +99,8 @@ class TextToSpeech:
         finally:
             # Garantizar limpieza del archivo temporal en cualquier caso
             try:
-                if os.path.exists(temp_path):
-                    os.remove(temp_path)
+                from pathlib import Path
+                Path(temp_path).unlink(missing_ok=True)
             except OSError as e:
                 logger.warning("No se pudo eliminar el archivo temporal de TTS '%s': %s", temp_path, e)
 

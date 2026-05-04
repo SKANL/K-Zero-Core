@@ -1,24 +1,24 @@
-import uuid
+import secrets
+from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from k_zero_core.services.providers.base_provider import AIProvider
 
 
+@dataclass
 class ChatSession:
     """Manages the state and history of a single chat conversation."""
 
-    def __init__(
-        self,
-        session_id: Optional[str] = None,
-        model: str = "",
-        provider: Optional["AIProvider"] = None,
-    ):
-        self.session_id = session_id or str(uuid.uuid4())
-        self.model = model
-        self.provider = provider
-        self.messages: List[Dict[str, Any]] = []
-        self.metadata: Dict[str, Any] = {}  # estado arbitrario por modo (ej. RAG collection_id)
+    session_id: Optional[str] = None
+    model: str = ""
+    provider: Optional["AIProvider"] = None
+    messages: List[Dict[str, Any]] = field(default_factory=list)
+    metadata: Dict[str, Any] = field(default_factory=dict)  # estado arbitrario por modo (ej. RAG collection_id)
+
+    def __post_init__(self):
+        if not self.session_id:
+            self.session_id = secrets.token_hex(8)
 
     @property
     def provider_key(self) -> str:

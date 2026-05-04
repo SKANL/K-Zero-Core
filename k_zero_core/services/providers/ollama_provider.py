@@ -31,6 +31,9 @@ class OllamaProvider(AIProvider):
     def get_display_name(self) -> str:
         return "Ollama (Local)"
 
+    from functools import lru_cache
+
+    @lru_cache(maxsize=1)
     def get_available_models(self) -> List[str]:
         """Retorna los modelos instalados localmente en Ollama."""
         try:
@@ -40,6 +43,44 @@ class OllamaProvider(AIProvider):
             raise OllamaConnectionError(
                 f"No se pudo conectar a Ollama. Asegúrate de que la app esté corriendo. Detalle: {e}"
             )
+
+    def _handle_tool_calls(
+        self,
+        response_message: Dict[str, Any],
+        messages: List[Dict[str, Any]],
+        tools: List
+    ) -> bool:
+        """
+        Ejecuta las herramientas solicitadas por el modelo y actualiza el historial.
+        Retorna True si se ejecutaron herramientas, False en caso contrario.
+        """
+        tool_calls = response_message.get('tool_calls')
+        if not tool_calls:
+            return False
+
+        # Agregar el mensaje del asistente al historial una sola vez
+        messages.append(_make_serializable(response_message))
+
+        for tool in tool_calls:
+            func_name = tool['function']['name']
+            args = tool['function']['arguments']
+            func_to_call = next(
+                (f for f in tools if f.__name__ == func_name), None
+            )
+            if func_to_call:
+                print(f"\n[Agente ejecutando: {func_name}({args})]")
+                try:
+                    result = func_to_call(**args)
+                except Exception as e:
+                    result = f"Error ejecutando herramienta: {e}"
+
+                messages.append({
+                    'role': 'tool',
+                    'content': str(result),
+                    'name': func_name,
+                })
+        
+        return True
 
     def stream_chat(
         self,
@@ -56,27 +97,10 @@ class OllamaProvider(AIProvider):
                 response = ollama.chat(
                     model=model, messages=messages, tools=tools, stream=False
                 )
-                if response.get('message', {}).get('tool_calls'):
-                    for tool in response['message'].get('tool_calls', []):
-                        func_name = tool['function']['name']
-                        args = tool['function']['arguments']
-                        func_to_call = next(
-                            (f for f in tools if f.__name__ == func_name), None
-                        )
-                        if func_to_call:
-                            print(f"\n[Agente ejecutando: {func_name}({args})]")
-                            try:
-                                result = func_to_call(**args)
-                            except Exception as e:
-                                result = f"Error ejecutando herramienta: {e}"
-
-                            messages.append(_make_serializable(response['message']))
-                            messages.append({
-                                'role': 'tool',
-                                'content': str(result),
-                                'name': func_name,
-                            })
-
+                
+                response_message = response.get('message', {})
+                if self._handle_tool_calls(response_message, messages, tools):
+                    # Retomar streaming con los resultados de las herramientas en el historial
                     stream = ollama.chat(model=model, messages=messages, stream=True)
                     for chunk in stream:
                         yield chunk['message']['content']
