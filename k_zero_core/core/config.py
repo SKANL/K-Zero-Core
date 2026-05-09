@@ -15,6 +15,8 @@ DATA_DIR = Path(_env_data_dir) if _env_data_dir else Path.home() / ".k_zero"
 
 # Subdirectorios y archivos de datos
 PROMPTS_FILE = DATA_DIR / "prompts.json"
+PROVIDERS_FILE = DATA_DIR / "providers.json"
+SHARED_INSTRUCTIONS_FILE = DATA_DIR / "shared_instructions.md"
 SESSIONS_DIR = DATA_DIR / "sessions"
 VECTOR_STORE_DIR = DATA_DIR / "vector_store"
 PLUGINS_DIR = DATA_DIR / "plugins"

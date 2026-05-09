@@ -3,6 +3,8 @@ Herramientas de sistema de archivos: leer archivos y listar directorios.
 """
 from pathlib import Path
 
+from k_zero_core.core.tool_safety import resolve_safe_path
+
 
 def leer_archivo(ruta: str, max_chars: int = 8000) -> str:
     """
@@ -19,7 +21,10 @@ def leer_archivo(ruta: str, max_chars: int = 8000) -> str:
     Returns:
         El contenido del archivo como texto, o un mensaje de error si no se pudo leer.
     """
-    path = Path(ruta).expanduser()
+    try:
+        path = resolve_safe_path(ruta)
+    except ValueError as e:
+        return f"Error: {e}"
 
     if not path.exists():
         return f"Error: El archivo '{path}' no existe."
@@ -57,7 +62,10 @@ def listar_directorio(ruta: str = ".") -> str:
     Returns:
         Lista formateada con archivos y carpetas, o un mensaje de error.
     """
-    path = Path(ruta).expanduser()
+    try:
+        path = resolve_safe_path(ruta)
+    except ValueError as e:
+        return f"Error: {e}"
 
     if not path.exists():
         return f"Error: El directorio '{path}' no existe."

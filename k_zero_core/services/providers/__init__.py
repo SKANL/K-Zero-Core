@@ -9,6 +9,11 @@ Para agregar un nuevo proveedor (ej. Groq, OpenAI, Anthropic):
 from typing import Type
 
 from k_zero_core.services.providers.base_provider import AIProvider
+from k_zero_core.services.providers.declarative import (
+    DeclarativeOpenAIProvider,
+    get_declarative_provider,
+    load_declarative_provider_configs,
+)
 from k_zero_core.services.providers.ollama_provider import OllamaProvider
 
 PROVIDER_REGISTRY: dict[str, Type[AIProvider]] = {
@@ -27,8 +32,22 @@ def get_provider(key: str) -> AIProvider:
     Returns:
         Instancia de AIProvider lista para usar.
     """
-    ProviderClass = PROVIDER_REGISTRY.get(key, OllamaProvider)
-    return ProviderClass()
+    ProviderClass = PROVIDER_REGISTRY.get(key)
+    if ProviderClass:
+        return ProviderClass()
+
+    declarative = get_declarative_provider(key)
+    if declarative:
+        return declarative
+
+    return OllamaProvider()
 
 
-__all__ = ["AIProvider", "PROVIDER_REGISTRY", "get_provider"]
+def list_provider_options() -> list[AIProvider]:
+    """Lista providers built-in y declarativos configurados."""
+    providers: list[AIProvider] = [provider_class() for provider_class in PROVIDER_REGISTRY.values()]
+    providers.extend(DeclarativeOpenAIProvider(config) for config in load_declarative_provider_configs())
+    return providers
+
+
+__all__ = ["AIProvider", "PROVIDER_REGISTRY", "get_provider", "list_provider_options"]

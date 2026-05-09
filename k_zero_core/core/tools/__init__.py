@@ -30,6 +30,7 @@ from k_zero_core.core.tools.analisis_json import analizar_valores_json
 from k_zero_core.core.tools.web_search import buscar_en_internet, buscar_tavily
 from k_zero_core.core.tools.web_reader import leer_pagina_web, extraer_wikipedia
 from k_zero_core.core.tools.rag_search import buscar_en_documentos_locales
+from k_zero_core.core.tools.registry import ToolSpec, build_tool_specs
 
 # Registro de todas las tools disponibles
 # Para desactivar una tool, simplemente coméntala aquí
@@ -57,3 +58,12 @@ def get_all_tools() -> List[Callable]:
     """
     return list(_ALL_TOOLS)
 
+
+def get_tool_specs() -> List[ToolSpec]:
+    """Retorna metadata de tools en el mismo orden de get_all_tools()."""
+    return build_tool_specs(get_all_tools())
+
+
+def get_available_tool_specs() -> List[ToolSpec]:
+    """Retorna metadata de tools con dependencias de entorno satisfechas."""
+    return [spec for spec in get_tool_specs() if spec.available]

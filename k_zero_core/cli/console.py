@@ -7,6 +7,7 @@ from k_zero_core.cli.menus import (
     manage_sessions, choose_mode, choose_io_mode,
 )
 from k_zero_core.services.chat_session import ChatSession
+from k_zero_core.services.prompt_composer import compose_system_prompt
 from k_zero_core.services.providers import get_provider
 from k_zero_core.storage.session_manager import load_session, save_session
 from k_zero_core.core.exceptions import APIVoiceException
@@ -38,12 +39,12 @@ def _setup_chat_session(plugin, provider, session_id: Optional[str]) -> ChatSess
         sys_prompt = choose_system_prompt(plugin.get_default_system_prompt() or "")
 
         if sys_prompt:
-            chat.set_system_prompt(sys_prompt)
+            chat.set_system_prompt(compose_system_prompt(sys_prompt))
             print("System prompt personalizado cargado.")
         else:
             default_prompt = plugin.get_default_system_prompt()
             if default_prompt:
-                chat.set_system_prompt(default_prompt)
+                chat.set_system_prompt(compose_system_prompt(default_prompt))
                 print("System prompt por defecto del modo cargado.")
 
         print(f"\n--- Iniciando nuevo chat con {chat.model} ({chat.provider.get_display_name()}) ---")

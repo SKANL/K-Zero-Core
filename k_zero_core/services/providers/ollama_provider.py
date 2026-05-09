@@ -1,26 +1,10 @@
-import ollama
 from typing import List, Dict, Any, Optional, Generator
 
+import ollama
+
 from k_zero_core.core.exceptions import OllamaConnectionError
+from k_zero_core.core.tool_executor import execute_tool_calls
 from k_zero_core.services.providers.base_provider import AIProvider
-
-
-def _make_serializable(obj: Any) -> Any:
-    """
-    Convierte recursivamente objetos de respuesta de Ollama (Pydantic models, etc.)
-    a tipos nativos de Python serializables en JSON.
-    """
-    if hasattr(obj, 'model_dump'):
-        return obj.model_dump()
-    elif hasattr(obj, 'dict'):
-        return obj.dict()
-    elif hasattr(obj, '__dict__'):
-        return {k: _make_serializable(v) for k, v in vars(obj).items()}
-    elif isinstance(obj, dict):
-        return {k: _make_serializable(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
-        return [_make_serializable(v) for v in obj]
-    return obj
 
 
 class OllamaProvider(AIProvider):
@@ -54,33 +38,7 @@ class OllamaProvider(AIProvider):
         Ejecuta las herramientas solicitadas por el modelo y actualiza el historial.
         Retorna True si se ejecutaron herramientas, False en caso contrario.
         """
-        tool_calls = response_message.get('tool_calls')
-        if not tool_calls:
-            return False
-
-        # Agregar el mensaje del asistente al historial una sola vez
-        messages.append(_make_serializable(response_message))
-
-        for tool in tool_calls:
-            func_name = tool['function']['name']
-            args = tool['function']['arguments']
-            func_to_call = next(
-                (f for f in tools if f.__name__ == func_name), None
-            )
-            if func_to_call:
-                print(f"\n[Agente ejecutando: {func_name}({args})]")
-                try:
-                    result = func_to_call(**args)
-                except Exception as e:
-                    result = f"Error ejecutando herramienta: {e}"
-
-                messages.append({
-                    'role': 'tool',
-                    'content': str(result),
-                    'name': func_name,
-                })
-        
-        return True
+        return execute_tool_calls(response_message, messages, tools)
 
     def stream_chat(
         self,

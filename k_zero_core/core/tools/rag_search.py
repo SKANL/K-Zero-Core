@@ -1,19 +1,33 @@
 """
 Herramienta de búsqueda en base de datos vectorial local (Agentic RAG).
 """
+from dataclasses import dataclass
 from typing import Optional
+
 from k_zero_core.services.rag_engine import RagEngine
 
-# Variables globales para inyectar el motor RAG activo en la sesión
-# Esto permite que la Tool sepa dónde buscar sin modificar la firma de la función (que es invocada por el LLM)
-_active_rag_engine: Optional[RagEngine] = None
-_active_collection_id: Optional[str] = None
+
+@dataclass
+class _ActiveRAGContext:
+    """Estado RAG activo para la sesión CLI actual."""
+
+    engine: Optional[RagEngine] = None
+    collection_id: Optional[str] = None
+
+    @property
+    def is_ready(self) -> bool:
+        return self.engine is not None and self.collection_id is not None
+
+
+# Contexto global intencional: la tool debe mantener una firma simple invocable por el LLM.
+_active_context = _ActiveRAGContext()
+
 
 def set_active_rag(engine: RagEngine, collection_id: str) -> None:
     """Configura el motor RAG activo para la sesión actual."""
-    global _active_rag_engine, _active_collection_id
-    _active_rag_engine = engine
-    _active_collection_id = collection_id
+    _active_context.engine = engine
+    _active_context.collection_id = collection_id
+
 
 def buscar_en_documentos_locales(query: str, top_k: int = 3) -> str:
     """
@@ -26,13 +40,17 @@ def buscar_en_documentos_locales(query: str, top_k: int = 3) -> str:
     Returns:
         Fragmentos de los documentos que responden a la consulta, o un aviso si no hay documentos.
     """
-    global _active_rag_engine, _active_collection_id
-    
-    if not _active_rag_engine or not _active_collection_id:
+    if not _active_context.is_ready:
         return "No hay ningún documento local cargado en este momento en la sesión."
         
     try:
-        resultados = _active_rag_engine.search(query, _active_collection_id, top_k=top_k)
+        assert _active_context.engine is not None
+        assert _active_context.collection_id is not None
+        resultados = _active_context.engine.search(
+            query,
+            _active_context.collection_id,
+            top_k=top_k,
+        )
         if not resultados:
             return "No se encontró información relevante en el documento para esta consulta."
             
