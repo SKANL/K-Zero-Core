@@ -12,18 +12,12 @@ Diferencia clave vs. "full-text stuffing":
     - El índice vectorial persiste en disco → no re-indexar al reanudar sesión
 """
 from k_zero_core.modes.base import BaseMode
+from k_zero_core.modes.conversation_flow import RAG_EXIT_PROMPT_TEXT, is_exit_command
 from k_zero_core.modes.mode_streaming import save_and_output_response, stream_text_response
-from k_zero_core.modes.rag_helpers import (
-    activate_rag_search,
-    build_rag_messages,
-    compute_collection_id,
-    restore_existing_rag_index,
-)
+from k_zero_core.modes.rag_helpers import build_rag_messages
+from k_zero_core.modes.rag_setup import prepare_rag_document
 from k_zero_core.services.chat_session import ChatSession
 from k_zero_core.audio.io_handler import IOHandler
-from k_zero_core.services.document_reader import extract_text, sanitize_path
-from k_zero_core.services.vector_store import VectorStore
-from k_zero_core.services.rag_engine import RagEngine
 
 
 class DocumentRAGMode(BaseMode):
@@ -60,65 +54,9 @@ class DocumentRAGMode(BaseMode):
         Inicializa el RagEngine. Si la sesión ya tiene un índice vectorial guardado
         y este existe en ChromaDB, lo reutiliza directamente sin re-indexar.
         """
-        vector_store = VectorStore()
-
-        restored = restore_existing_rag_index(chat_session.metadata, vector_store)
-        if restored:
-            self._rag_engine, self._collection_id, existing_file_path = restored
-            print(f"📚 Índice vectorial encontrado. Documento listo para preguntas.")
-            if existing_file_path:
-                print(f"   Archivo: {existing_file_path}")
-            print()
-            return
-
-        if chat_session.metadata.get("rag_collection_id") and chat_session.metadata.get("rag_embedding_model"):
-            print("⚠️  El índice de esta sesión no se encontró en el vector store.")
-            print("   Por favor, carga el documento de nuevo.\n")
-
-        # Primera vez o índice perdido → elegir embedding model y cargar documento
-        from k_zero_core.cli.menus import choose_embedding_model
-        embedding_model = choose_embedding_model(chat_session.provider)
-
-        print("\n--- Carga de Documento ---")
-        while True:
-            raw_path = input("Ingresa la ruta de tu archivo (PDF o TXT): ").strip()
-            if not raw_path:
-                continue
-            file_path = sanitize_path(raw_path)
-
-            try:
-                print("Leyendo archivo...")
-                texto = extract_text(file_path)
-                print(f"  Texto extraído: {len(texto):,} caracteres")
-
-                collection_id = compute_collection_id(file_path)
-                engine = RagEngine(embedding_model, vector_store)
-
-                if engine.is_indexed(collection_id):
-                    print("✅ El documento ya estaba indexado. Reutilizando índice existente.")
-                else:
-                    print("Indexando documento (esto solo ocurre la primera vez)...")
-                    total = engine.ingest(texto, collection_id)
-                    print(f"✅ Documento indexado en {total} fragmentos.")
-
-                self._rag_engine = engine
-                self._collection_id = collection_id
-
-                activate_rag_search(engine, collection_id)
-
-                # Persistir metadata para poder recuperar el índice al reanudar sesión
-                chat_session.metadata.update({
-                    "rag_collection_id": collection_id,
-                    "rag_embedding_model": embedding_model,
-                    "rag_file_path": file_path,
-                })
-
-                print("\n¡Listo! ¿Qué quieres saber sobre el documento?\n")
-                io_handler.output_response("Documento listo. ¿Qué quieres saber?")
-                break
-
-            except Exception as e:
-                print(f"Error: {e}\nIntenta de nuevo.\n")
+        setup = prepare_rag_document(chat_session, io_handler)
+        self._rag_engine = setup.engine
+        self._collection_id = setup.collection_id
 
     def run(self, chat_session: ChatSession, io_handler: IOHandler) -> None:
         """
@@ -129,7 +67,7 @@ class DocumentRAGMode(BaseMode):
         4. Se guarda en historial solo el Q&A limpio (sin el bloque de contexto repetido)
         """
         print(f"\n--- Modo Activado: {self.get_name()} ---")
-        print("Escribe 'salir', 'exit' o 'quit' para terminar.\n")
+        print(RAG_EXIT_PROMPT_TEXT)
 
         self.on_start(chat_session, io_handler)
 
@@ -139,7 +77,7 @@ class DocumentRAGMode(BaseMode):
             if not user_text:
                 continue
 
-            if user_text.lower().strip() in ['salir', 'exit', 'quit']:
+            if is_exit_command(user_text):
                 print("\n¡Hasta luego!")
                 break
 

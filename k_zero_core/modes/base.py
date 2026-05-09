@@ -3,6 +3,12 @@ from typing import Optional, List
 
 from k_zero_core.services.chat_session import ChatSession
 from k_zero_core.audio.io_handler import IOHandler
+from k_zero_core.modes.conversation_flow import (
+    ACCUMULATOR_STOP_WORDS,
+    EXIT_PROMPT_TEXT,
+    is_exit_command,
+    normalize_command,
+)
 from k_zero_core.modes.mode_streaming import save_and_output_response, stream_text_response
 
 
@@ -77,7 +83,7 @@ class BaseMode(ABC):
     def run(self, chat_session: ChatSession, io_handler: IOHandler) -> None:
         """The main interaction loop (Template Method)."""
         print(f"\n--- Modo Activado: {self.get_name()} ---")
-        print("Escribe 'salir', 'exit' o 'quit' (o dilo si usas micrófono) para terminar.\n")
+        print(EXIT_PROMPT_TEXT)
 
         self.on_start(chat_session, io_handler)
 
@@ -87,9 +93,7 @@ class BaseMode(ABC):
             if not user_text:
                 continue
 
-            user_text_lower = user_text.lower().strip()
-
-            if user_text_lower in ['salir', 'exit', 'quit']:
+            if is_exit_command(user_text):
                 print("\nConversación guardada. ¡Hasta luego!")
                 break
 
@@ -123,7 +127,7 @@ class AccumulatorMode(BaseMode):
 
     def get_stop_words(self) -> List[str]:
         """Words/phrases that trigger end of accumulation (case-insensitive)."""
-        return ['terminar', 'guardar', 'fin', 'salir', 'exit', 'quit']
+        return list(ACCUMULATOR_STOP_WORDS)
 
     def get_accumulation_prompt(self) -> str:
         """Return the instruction message shown to the user at the start of the loop."""
@@ -167,7 +171,7 @@ class AccumulatorMode(BaseMode):
             if not user_text:
                 continue
 
-            if user_text.lower().strip() in stop_words:
+            if normalize_command(user_text) in stop_words:
                 print("\nProcesando todo lo que dijiste...")
                 break
 

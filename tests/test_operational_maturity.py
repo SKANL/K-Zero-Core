@@ -173,6 +173,80 @@ class STTMenuTests(unittest.TestCase):
         )
 
 
+class CLISessionSetupTests(unittest.TestCase):
+    def test_setup_chat_session_restores_saved_provider_and_history(self):
+        from k_zero_core.cli.session_setup import setup_chat_session
+
+        class FakePlugin:
+            def get_name(self):
+                return "Modo Fake"
+
+            def get_default_system_prompt(self):
+                return "prompt base"
+
+        class FakeProvider:
+            key = "selected"
+
+            def get_display_name(self):
+                return "Selected"
+
+        class SavedProvider:
+            key = "saved"
+
+            def get_display_name(self):
+                return "Saved Provider"
+
+        session = setup_chat_session(
+            FakePlugin(),
+            FakeProvider(),
+            "abc123",
+            load_session_func=lambda _sid: {
+                "provider": "saved",
+                "model": "llama3",
+                "metadata": {"x": 1},
+                "messages": [{"role": "user", "content": "hola"}],
+            },
+            get_provider_func=lambda key: SavedProvider(),
+        )
+
+        self.assertEqual(session.session_id, "abc123")
+        self.assertEqual(session.provider.key, "saved")
+        self.assertEqual(session.model, "llama3")
+        self.assertEqual(session.metadata, {"x": 1})
+        self.assertEqual(session.messages, [{"role": "user", "content": "hola"}])
+
+    def test_setup_chat_session_applies_composed_custom_prompt_for_new_session(self):
+        from k_zero_core.cli.session_setup import setup_chat_session
+
+        class FakePlugin:
+            def get_name(self):
+                return "Modo Fake"
+
+            def get_default_system_prompt(self):
+                return "prompt base"
+
+        class FakeProvider:
+            key = "ollama"
+
+            def get_display_name(self):
+                return "Ollama"
+
+        session = setup_chat_session(
+            FakePlugin(),
+            FakeProvider(),
+            None,
+            choose_model_func=lambda _provider: "llama3",
+            choose_system_prompt_func=lambda _default: "prompt usuario",
+            compose_prompt_func=lambda prompt: f"compuesto: {prompt}",
+        )
+
+        self.assertEqual(session.model, "llama3")
+        self.assertEqual(
+            session.messages,
+            [{"role": "system", "content": "compuesto: prompt usuario"}],
+        )
+
+
 class RAGSearchContextTests(unittest.TestCase):
     def test_buscar_en_documentos_uses_active_context(self):
         from k_zero_core.core.tools.rag_search import buscar_en_documentos_locales, set_active_rag
@@ -189,6 +263,70 @@ class RAGSearchContextTests(unittest.TestCase):
 
         self.assertIn("fragmento", result)
         self.assertEqual(engine.received, ("pregunta", "doc-123", 2))
+
+
+class RagEngineEmbeddingClientTests(unittest.TestCase):
+    def test_ingest_uses_injected_embedding_client_for_document_batches(self):
+        from k_zero_core.services.rag_engine import RagEngine
+
+        class FakeStore:
+            def __init__(self):
+                self.stored = None
+
+            def collection_exists(self, _collection_id):
+                return False
+
+            def store(self, collection_id, chunks, embeddings):
+                self.stored = (collection_id, chunks, embeddings)
+
+        class FakeEmbeddingClient:
+            def __init__(self):
+                self.document_calls = []
+
+            def embed_documents(self, model, texts):
+                self.document_calls.append((model, texts))
+                return [[float(i)] for i, _text in enumerate(texts)]
+
+        store = FakeStore()
+        embeddings = FakeEmbeddingClient()
+        engine = RagEngine("embed-model", store, embedding_client=embeddings)
+
+        total = engine.ingest("Una oración. Otra oración.", "doc-1")
+
+        self.assertEqual(total, 1)
+        self.assertEqual(embeddings.document_calls[0][0], "embed-model")
+        self.assertEqual(embeddings.document_calls[0][1], ["search_document: Una oración. Otra oración."])
+        self.assertEqual(store.stored[0], "doc-1")
+        self.assertEqual(store.stored[2], [[0.0]])
+
+    def test_search_uses_injected_embedding_client_for_query(self):
+        from k_zero_core.services.rag_engine import RagEngine
+
+        class FakeStore:
+            def __init__(self):
+                self.received = None
+
+            def search(self, collection_id, query_embedding, top_k):
+                self.received = (collection_id, query_embedding, top_k)
+                return ["fragmento"]
+
+        class FakeEmbeddingClient:
+            def __init__(self):
+                self.query_calls = []
+
+            def embed_query(self, model, text):
+                self.query_calls.append((model, text))
+                return [42.0]
+
+        store = FakeStore()
+        embeddings = FakeEmbeddingClient()
+        engine = RagEngine("embed-model", store, embedding_client=embeddings)
+
+        result = engine.search("pregunta", "doc-1", top_k=2)
+
+        self.assertEqual(result, ["fragmento"])
+        self.assertEqual(embeddings.query_calls, [("embed-model", "search_query: pregunta")])
+        self.assertEqual(store.received, ("doc-1", [42.0], 2))
 
 
 class DirectorDeclarativeTests(unittest.TestCase):

@@ -6,6 +6,7 @@ from collections.abc import Callable
 from typing import Any, List
 
 from k_zero_core.modes.base import BaseMode
+from k_zero_core.modes.conversation_flow import EXIT_PROMPT_TEXT, is_exit_command
 from k_zero_core.modes.director_helpers import (
     ROLE_LABELS,
     ROLE_RESULT_HEADERS,
@@ -50,7 +51,7 @@ class DirectorMode(BaseMode):
     def run(self, chat_session: ChatSession, io_handler: IOHandler) -> None:
         """Override del loop principal para inyectar lógica de orquestación."""
         print(f"\n--- Modo Activado: {self.get_name()} ---")
-        print("Escribe 'salir', 'exit' o 'quit' (o dilo si usas micrófono) para terminar.\n")
+        print(EXIT_PROMPT_TEXT)
 
         self.on_start(chat_session, io_handler)
 
@@ -60,8 +61,7 @@ class DirectorMode(BaseMode):
             if not user_text:
                 continue
 
-            user_text_lower = user_text.lower().strip()
-            if user_text_lower in ['salir', 'exit', 'quit']:
+            if is_exit_command(user_text):
                 print("\nConversación guardada. ¡Hasta luego!")
                 break
 

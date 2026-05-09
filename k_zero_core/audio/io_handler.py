@@ -10,6 +10,8 @@ import logging
 import os
 from typing import Optional
 
+from k_zero_core.modes.conversation_flow import EXIT_COMMANDS
+
 logger = logging.getLogger(__name__)
 
 # Fuentes de audio soportadas y sus métodos de captura
@@ -104,7 +106,7 @@ class IOHandler:
         Enruta la captura al método correcto según la fuente configurada.
 
         Returns:
-            Texto capturado/transcrito, o 'salir' si la fuente de archivo
+            Texto capturado/transcrito, o el comando de salida si la fuente de archivo
             ya fue procesada (finaliza la sesión automáticamente).
         """
         source = self.stt_config.get("source", "mic")
@@ -122,17 +124,17 @@ class IOHandler:
         """
         Transcribe un archivo local o URL de YouTube (solo una vez por sesión).
 
-        Tras la primera transcripción retorna 'salir' para que el modo
+        Tras la primera transcripción retorna el comando de salida para que el modo
         principal termine la sesión automáticamente.
 
         Args:
             source: 'file' o 'youtube'.
 
         Returns:
-            Texto transcrito en el primer llamado; 'salir' en los siguientes.
+            Texto transcrito en el primer llamado; comando de salida en los siguientes.
         """
         if self._file_transcribed:
-            return "salir"
+            return EXIT_COMMANDS[0]
 
         self._file_transcribed = True
 

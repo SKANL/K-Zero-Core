@@ -7,11 +7,10 @@ Flujo de uso:
     engine.ingest(text, collection_id)    # primera vez
     chunks = engine.search(query, collection_id)  # por cada pregunta
 """
-import ollama
 from typing import List
 
+from k_zero_core.services.embeddings import EmbeddingClient, OllamaEmbeddingClient
 from k_zero_core.services.vector_store import VectorStore
-from k_zero_core.core.exceptions import OllamaConnectionError
 
 
 class RagEngine:
@@ -33,15 +32,22 @@ class RagEngine:
     DOC_PREFIX = "search_document: "   # prefijo recomendado por nomic para documentos
     QUERY_PREFIX = "search_query: "    # prefijo recomendado por nomic para consultas
 
-    def __init__(self, embedding_model: str, vector_store: VectorStore) -> None:
+    def __init__(
+        self,
+        embedding_model: str,
+        vector_store: VectorStore,
+        embedding_client: EmbeddingClient | None = None,
+    ) -> None:
         """
         Args:
             embedding_model: Nombre del modelo de embedding en Ollama
                              (ej. 'nomic-embed-text-v2-moe:latest').
             vector_store: Instancia del VectorStore donde persistir los embeddings.
+            embedding_client: Cliente para generar embeddings. Por defecto usa Ollama.
         """
         self.embedding_model = embedding_model
         self._store = vector_store
+        self._embedding_client = embedding_client or OllamaEmbeddingClient()
 
     def is_indexed(self, collection_id: str) -> bool:
         """Retorna True si el documento ya está indexado en el vector store."""
@@ -69,17 +75,14 @@ class RagEngine:
         prefixed = [f"{self.DOC_PREFIX}{chunk}" for chunk in chunks]
 
         print(f"  Generando embeddings con '{self.embedding_model}'...")
-        try:
-            BATCH_SIZE = 50
-            all_embeddings = []
-            # Dividir en lotes para no sobrecargar a Ollama (evita errores OOM en documentos grandes)
-            for i in range(0, len(prefixed), BATCH_SIZE):
-                batch = prefixed[i:i + BATCH_SIZE]
-                response = ollama.embed(model=self.embedding_model, input=batch)
-                all_embeddings.extend(response.embeddings)
-            embeddings = all_embeddings  # List[List[float]]
-        except Exception as e:
-            raise OllamaConnectionError(f"Error generando embeddings: {e}")
+        BATCH_SIZE = 50
+        embeddings: List[List[float]] = []
+        # Dividir en lotes para no sobrecargar al backend de embeddings.
+        for i in range(0, len(prefixed), BATCH_SIZE):
+            batch = prefixed[i:i + BATCH_SIZE]
+            embeddings.extend(
+                self._embedding_client.embed_documents(self.embedding_model, batch)
+            )
 
         print("  Guardando en base de datos vectorial...")
         self._store.store(collection_id, chunks, embeddings)
@@ -100,15 +103,10 @@ class RagEngine:
         Raises:
             OllamaConnectionError: Si Ollama no está disponible.
         """
-        try:
-            # Prefijo "search_query: " recomendado por nomic para consultas
-            response = ollama.embed(
-                model=self.embedding_model,
-                input=f"{self.QUERY_PREFIX}{query}",
-            )
-            query_embedding = response.embeddings[0]
-        except Exception as e:
-            raise OllamaConnectionError(f"Error al embeber la consulta: {e}")
+        query_embedding = self._embedding_client.embed_query(
+            self.embedding_model,
+            f"{self.QUERY_PREFIX}{query}",
+        )
 
         return self._store.search(collection_id, query_embedding, top_k)
 
