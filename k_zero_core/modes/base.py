@@ -3,7 +3,7 @@ from typing import Optional, List
 
 from k_zero_core.services.chat_session import ChatSession
 from k_zero_core.audio.io_handler import IOHandler
-from k_zero_core.storage.session_manager import save_session
+from k_zero_core.modes.mode_streaming import save_and_output_response, stream_text_response
 
 
 class BaseMode(ABC):
@@ -70,27 +70,9 @@ class BaseMode(ABC):
         stream = chat_session.provider.stream_chat(
             chat_session.model, chat_session.messages, tools=tools
         )
-
-        respuesta_completa = ""
-        print(f"\n[{label}]: ", end="", flush=True)
-        for chunk in stream:
-            print(chunk, end="", flush=True)
-            respuesta_completa += chunk
-
-        print("\n")
-
-        if respuesta_completa:
-            chat_session.add_assistant_message(respuesta_completa)
-            save_session(
-                chat_session.session_id,
-                chat_session.messages,
-                chat_session.model,
-                chat_session.provider_key,
-                chat_session.metadata,
-            )
-            io_handler.output_response(respuesta_completa)
-
-        return respuesta_completa
+        response = stream_text_response(stream, label)
+        save_and_output_response(chat_session, io_handler, response)
+        return response
 
     def run(self, chat_session: ChatSession, io_handler: IOHandler) -> None:
         """The main interaction loop (Template Method)."""

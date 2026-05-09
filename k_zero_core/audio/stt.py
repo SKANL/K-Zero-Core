@@ -29,6 +29,19 @@ from k_zero_core.core.exceptions import APIVoiceException
 
 logger = logging.getLogger(__name__)
 
+LOOPBACK_ENERGY_THRESHOLD = 100
+DEFAULT_PAUSE_THRESHOLD = 0.6
+DEFAULT_NON_SPEAKING_DURATION = 0.5
+AMBIENT_ADJUSTMENT_SECONDS = 0.5
+WALKIE_TALKIE_TIMEOUT_SECONDS = 10
+WALKIE_TALKIE_PHRASE_TIME_LIMIT_SECONDS = 60
+STATUS_CLEAR_WIDTH = 30
+STREAMING_SILENCE_TIMEOUT_SECONDS = 2.0
+STREAMING_MAX_IDLE_TIMEOUT_SECONDS = 10.0
+STREAMING_PHRASE_TIME_LIMIT_SECONDS = 15
+STREAMING_QUEUE_POLL_SECONDS = 0.2
+STREAMING_PAUSE_THRESHOLD = 0.8
+
 
 class CustomMicrophone(sr.Microphone):
     """
@@ -124,8 +137,8 @@ class SpeechTranscriber:
         self.recognizer.energy_threshold = self.config.energy_threshold
         self.recognizer.dynamic_energy_threshold = True
         # pause_threshold >= non_speaking_duration es un invariante de SR
-        self.recognizer.pause_threshold = 0.6
-        self.recognizer.non_speaking_duration = 0.5
+        self.recognizer.pause_threshold = DEFAULT_PAUSE_THRESHOLD
+        self.recognizer.non_speaking_duration = DEFAULT_NON_SPEAKING_DURATION
         self._ambient_adjusted = False
 
     # ------------------------------------------------------------------
@@ -221,14 +234,16 @@ class SpeechTranscriber:
 
     def _configure_for_loopback(self) -> None:
         """Ajusta el reconocedor para captura loopback digital (umbral fijo, sin ajuste ambiental)."""
-        self.recognizer.energy_threshold = 100
+        self.recognizer.energy_threshold = LOOPBACK_ENERGY_THRESHOLD
         self.recognizer.dynamic_energy_threshold = False
 
     def _adjust_ambient_noise(self, source: sr.AudioSource) -> None:
         """Calibra el umbral de energía al ruido ambiente (solo si no se hizo ya)."""
         if not self._ambient_adjusted:
             print("🔈 Ajustando al ruido ambiente...", end=" ", flush=True)
-            self.recognizer.adjust_for_ambient_noise(source, duration=0.5)
+            self.recognizer.adjust_for_ambient_noise(
+                source, duration=AMBIENT_ADJUSTMENT_SECONDS
+            )
             self._ambient_adjusted = True
             print("Listo.")
 
@@ -262,14 +277,18 @@ class SpeechTranscriber:
 
             print("🎙️  ¡Habla ahora! (Se detendrá al detectar silencio)")
             try:
-                audio = self.recognizer.listen(source, timeout=10, phrase_time_limit=60)
+                audio = self.recognizer.listen(
+                    source,
+                    timeout=WALKIE_TALKIE_TIMEOUT_SECONDS,
+                    phrase_time_limit=WALKIE_TALKIE_PHRASE_TIME_LIMIT_SECONDS,
+                )
             except sr.WaitTimeoutError:
                 print("⏳ No se detectó voz en el tiempo límite.")
                 return ""
 
         print("⏳ Transcribiendo...", end="\r")
         resultado = self._do_transcribe(io.BytesIO(audio.get_wav_data()))
-        print(" " * 30, end="\r")  # Limpiar línea de estado
+        print(" " * STATUS_CLEAR_WIDTH, end="\r")  # Limpiar línea de estado
         return resultado
 
     def listen_streaming(
@@ -295,8 +314,6 @@ class SpeechTranscriber:
         import time
 
         audio_queue: queue.Queue = queue.Queue()
-        silence_timeout = 2.0   # Segundos de silencio para terminar el turno
-        max_idle_timeout = 10.0  # Segundos máximos sin detectar voz alguna
 
         def _on_audio_captured(recognizer: sr.Recognizer, audio: sr.AudioData) -> None:
             audio_queue.put(audio)
@@ -313,12 +330,14 @@ class SpeechTranscriber:
 
             # Permitir mayor pausa en modo streaming para no cortar al usuario mientras respira
             # Invariante: pause_threshold >= non_speaking_duration
-            self.recognizer.pause_threshold = 0.8
-            self.recognizer.non_speaking_duration = 0.5
+            self.recognizer.pause_threshold = STREAMING_PAUSE_THRESHOLD
+            self.recognizer.non_speaking_duration = DEFAULT_NON_SPEAKING_DURATION
 
             print("🎙️  [Streaming] Habla ahora... (Silencio de 2s para terminar)")
             stop_listening = self.recognizer.listen_in_background(
-                source, _on_audio_captured, phrase_time_limit=15
+                source,
+                _on_audio_captured,
+                phrase_time_limit=STREAMING_PHRASE_TIME_LIMIT_SECONDS,
             )
 
             final_text: list[str] = []
@@ -327,7 +346,7 @@ class SpeechTranscriber:
             try:
                 while True:
                     try:
-                        audio = audio_queue.get(timeout=0.2)
+                        audio = audio_queue.get(timeout=STREAMING_QUEUE_POLL_SECONDS)
                         last_speech_time = time.time()
                         text = self._do_transcribe(io.BytesIO(audio.get_wav_data()))
                         if text:
@@ -335,15 +354,15 @@ class SpeechTranscriber:
                             final_text.append(text)
                     except queue.Empty:
                         elapsed = time.time() - last_speech_time
-                        if elapsed > silence_timeout and final_text:
+                        if elapsed > STREAMING_SILENCE_TIMEOUT_SECONDS and final_text:
                             break
-                        if elapsed > max_idle_timeout and not final_text:
+                        if elapsed > STREAMING_MAX_IDLE_TIMEOUT_SECONDS and not final_text:
                             break
             finally:
                 stop_listening(wait_for_stop=False)
                 # Restaurar valores de pausa originales
-                self.recognizer.pause_threshold = 0.6
-                self.recognizer.non_speaking_duration = 0.5
+                self.recognizer.pause_threshold = DEFAULT_PAUSE_THRESHOLD
+                self.recognizer.non_speaking_duration = DEFAULT_NON_SPEAKING_DURATION
 
         return " ".join(final_text).strip()
 

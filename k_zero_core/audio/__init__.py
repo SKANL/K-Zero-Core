@@ -15,12 +15,28 @@ Ejemplo de uso::
     tts.speak(texto)
 """
 
-from k_zero_core.audio.config import WhisperConfig, TtsConfig
-from k_zero_core.audio.stt import SpeechTranscriber, CustomMicrophone
-from k_zero_core.audio.tts import TextToSpeech
-from k_zero_core.audio.io_handler import IOHandler
-from k_zero_core.audio.downloader import MediaDownloader
-from k_zero_core.audio.sources import get_audio_devices, get_running_applications
+_LAZY_EXPORTS = {
+    "WhisperConfig": ("k_zero_core.audio.config", "WhisperConfig"),
+    "TtsConfig": ("k_zero_core.audio.config", "TtsConfig"),
+    "SpeechTranscriber": ("k_zero_core.audio.stt", "SpeechTranscriber"),
+    "CustomMicrophone": ("k_zero_core.audio.stt", "CustomMicrophone"),
+    "TextToSpeech": ("k_zero_core.audio.tts", "TextToSpeech"),
+    "IOHandler": ("k_zero_core.audio.io_handler", "IOHandler"),
+    "MediaDownloader": ("k_zero_core.audio.downloader", "MediaDownloader"),
+    "get_audio_devices": ("k_zero_core.audio.sources", "get_audio_devices"),
+    "get_running_applications": ("k_zero_core.audio.sources", "get_running_applications"),
+}
+
+
+def __getattr__(name: str):
+    """Exporta el API público sin cargar STT/TTS hasta que se pidan explícitamente."""
+    if name not in _LAZY_EXPORTS:
+        raise AttributeError(f"module 'k_zero_core.audio' has no attribute {name!r}")
+    module_name, attr_name = _LAZY_EXPORTS[name]
+    from importlib import import_module
+    value = getattr(import_module(module_name), attr_name)
+    globals()[name] = value
+    return value
 
 __all__ = [
     # Configuración

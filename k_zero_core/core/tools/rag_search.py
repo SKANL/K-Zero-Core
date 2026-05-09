@@ -9,7 +9,7 @@ from k_zero_core.services.rag_engine import RagEngine
 _active_rag_engine: Optional[RagEngine] = None
 _active_collection_id: Optional[str] = None
 
-def set_active_rag(engine: RagEngine, collection_id: str):
+def set_active_rag(engine: RagEngine, collection_id: str) -> None:
     """Configura el motor RAG activo para la sesión actual."""
     global _active_rag_engine, _active_collection_id
     _active_rag_engine = engine

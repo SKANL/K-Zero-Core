@@ -11,7 +11,11 @@ fix_cuda_paths()
 
 __version__ = "0.1.0"
 
-# Expose main entry points for convenience
-from k_zero_core.cli.console import run
+def __getattr__(name: str):
+    """Carga entrypoints públicos de forma perezosa para evitar imports pesados."""
+    if name == "run":
+        from k_zero_core.cli.console import run
+        return run
+    raise AttributeError(f"module 'k_zero_core' has no attribute {name!r}")
 
 __all__ = ["__version__", "run"]

@@ -3,7 +3,6 @@ Servicio para extracción de texto de documentos locales (PDF y texto plano).
 Sin límite de caracteres — el pipeline RAG se encarga de gestionar el contexto.
 """
 from pathlib import Path
-from pypdf import PdfReader
 
 from k_zero_core.core.exceptions import StorageError
 
@@ -31,6 +30,8 @@ def extract_text(file_path: str) -> str:
 
     try:
         if path.suffix.lower() == ".pdf":
+            from pypdf import PdfReader
+
             reader = PdfReader(str(path))
             texto = "".join(
                 (page.extract_text() or "") + "\n"

@@ -11,16 +11,19 @@ Diferencia clave vs. "full-text stuffing":
     - El historial de sesión guarda Q&A limpios (sin el bloque de contexto)
     - El índice vectorial persiste en disco → no re-indexar al reanudar sesión
 """
-import hashlib
-from pathlib import Path
-
 from k_zero_core.modes.base import BaseMode
+from k_zero_core.modes.mode_streaming import save_and_output_response, stream_text_response
+from k_zero_core.modes.rag_helpers import (
+    activate_rag_search,
+    build_rag_messages,
+    compute_collection_id,
+    restore_existing_rag_index,
+)
 from k_zero_core.services.chat_session import ChatSession
 from k_zero_core.audio.io_handler import IOHandler
 from k_zero_core.services.document_reader import extract_text, sanitize_path
 from k_zero_core.services.vector_store import VectorStore
 from k_zero_core.services.rag_engine import RagEngine
-from k_zero_core.storage.session_manager import save_session
 
 
 class DocumentRAGMode(BaseMode):
@@ -59,29 +62,18 @@ class DocumentRAGMode(BaseMode):
         """
         vector_store = VectorStore()
 
-        # Intentar recuperar el índice de una sesión previa
-        existing_collection_id = chat_session.metadata.get("rag_collection_id")
-        existing_embedding_model = chat_session.metadata.get("rag_embedding_model")
-        existing_file_path = chat_session.metadata.get("rag_file_path", "")
+        restored = restore_existing_rag_index(chat_session.metadata, vector_store)
+        if restored:
+            self._rag_engine, self._collection_id, existing_file_path = restored
+            print(f"📚 Índice vectorial encontrado. Documento listo para preguntas.")
+            if existing_file_path:
+                print(f"   Archivo: {existing_file_path}")
+            print()
+            return
 
-        if existing_collection_id and existing_embedding_model:
-            engine = RagEngine(existing_embedding_model, vector_store)
-            if engine.is_indexed(existing_collection_id):
-                self._rag_engine = engine
-                self._collection_id = existing_collection_id
-                
-                # Inyectar el engine a la tool de búsqueda RAG
-                from k_zero_core.core.tools.rag_search import set_active_rag
-                set_active_rag(engine, existing_collection_id)
-                
-                print(f"📚 Índice vectorial encontrado. Documento listo para preguntas.")
-                if existing_file_path:
-                    print(f"   Archivo: {existing_file_path}")
-                print()
-                return
-            else:
-                print("⚠️  El índice de esta sesión no se encontró en el vector store.")
-                print("   Por favor, carga el documento de nuevo.\n")
+        if chat_session.metadata.get("rag_collection_id") and chat_session.metadata.get("rag_embedding_model"):
+            print("⚠️  El índice de esta sesión no se encontró en el vector store.")
+            print("   Por favor, carga el documento de nuevo.\n")
 
         # Primera vez o índice perdido → elegir embedding model y cargar documento
         from k_zero_core.cli.menus import choose_embedding_model
@@ -99,7 +91,7 @@ class DocumentRAGMode(BaseMode):
                 texto = extract_text(file_path)
                 print(f"  Texto extraído: {len(texto):,} caracteres")
 
-                collection_id = self._compute_collection_id(file_path)
+                collection_id = compute_collection_id(file_path)
                 engine = RagEngine(embedding_model, vector_store)
 
                 if engine.is_indexed(collection_id):
@@ -112,9 +104,7 @@ class DocumentRAGMode(BaseMode):
                 self._rag_engine = engine
                 self._collection_id = collection_id
 
-                # Inyectar el engine a la tool de búsqueda RAG
-                from k_zero_core.core.tools.rag_search import set_active_rag
-                set_active_rag(engine, collection_id)
+                activate_rag_search(engine, collection_id)
 
                 # Persistir metadata para poder recuperar el índice al reanudar sesión
                 chat_session.metadata.update({
@@ -129,22 +119,6 @@ class DocumentRAGMode(BaseMode):
 
             except Exception as e:
                 print(f"Error: {e}\nIntenta de nuevo.\n")
-
-    @staticmethod
-    def _compute_collection_id(file_path: str) -> str:
-        """
-        Genera un ID único y estable para la colección ChromaDB basado en el
-        contenido del archivo (SHA256). El mismo archivo siempre produce el mismo ID.
-
-        Args:
-            file_path: Ruta al archivo del documento.
-
-        Returns:
-            ID de colección compatible con ChromaDB (3-63 chars, alfanumérico + guiones).
-        """
-        content = Path(file_path).read_bytes()
-        sha = hashlib.sha256(content).hexdigest()
-        return f"doc-{sha[:24]}"
 
     def run(self, chat_session: ChatSession, io_handler: IOHandler) -> None:
         """
@@ -181,21 +155,9 @@ class DocumentRAGMode(BaseMode):
                 print("\n[RAG]: No encontré información relevante en el documento para esa pregunta.\n")
                 continue
 
-            context_block = "\n\n---\n\n".join(relevant_chunks)
-
-            # 2. Mensajes EFÍMEROS para esta llamada LLM
-            # El historial limpio se mantiene en chat_session.messages
-            # El contexto se inyecta solo para esta llamada, no se guarda
-            messages_for_call = list(chat_session.messages) + [
-                {
-                    'role': 'user',
-                    'content': (
-                        f"[Fragmentos relevantes del documento]\n\n"
-                        f"{context_block}\n\n"
-                        f"[Pregunta del usuario]\n{user_text}"
-                    ),
-                }
-            ]
+            messages_for_call = build_rag_messages(
+                chat_session.messages, relevant_chunks, user_text
+            )
 
             print(f"{chat_session.model} está pensando... ", end="", flush=True)
 
@@ -204,22 +166,9 @@ class DocumentRAGMode(BaseMode):
                 chat_session.model, messages_for_call
             )
 
-            respuesta_completa = ""
-            print("\n[RAG Respuesta]: ", end="", flush=True)
-            for chunk in stream:
-                print(chunk, end="", flush=True)
-                respuesta_completa += chunk
-            print("\n")
+            respuesta_completa = stream_text_response(stream, "RAG Respuesta")
 
             # 4. Solo Q&A limpio en el historial de sesión
-            if respuesta_completa:
-                chat_session.add_user_message(user_text)
-                chat_session.add_assistant_message(respuesta_completa)
-                save_session(
-                    chat_session.session_id,
-                    chat_session.messages,
-                    chat_session.model,
-                    chat_session.provider_key,
-                    chat_session.metadata,
-                )
-                io_handler.output_response(respuesta_completa)
+            save_and_output_response(
+                chat_session, io_handler, respuesta_completa, user_text=user_text
+            )
