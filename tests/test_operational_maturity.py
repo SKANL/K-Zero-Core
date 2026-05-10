@@ -58,6 +58,26 @@ class ToolExecutorTests(unittest.TestCase):
         self.assertEqual(messages[1]["tool_calls"][0]["function"]["name"], "sumar")
 
 
+class WebToolErrorHandlingTests(unittest.TestCase):
+    def test_duckduckgo_fallback_returns_error_string_on_network_failure(self):
+        from k_zero_core.core.tools.web_search import _buscar_duckduckgo_api
+
+        with patch("urllib.request.urlopen", side_effect=OSError("sin red")):
+            result = _buscar_duckduckgo_api("consulta")
+
+        self.assertIn("Error al buscar", result)
+        self.assertIn("sin red", result)
+
+    def test_web_reader_returns_error_string_on_network_failure(self):
+        from k_zero_core.core.tools.web_reader import leer_pagina_web
+
+        with patch("urllib.request.urlopen", side_effect=OSError("sin red")):
+            result = leer_pagina_web("https://example.test")
+
+        self.assertIn("Error al extraer", result)
+        self.assertIn("sin red", result)
+
+
 class ToolSafetyTests(unittest.TestCase):
     def test_resolve_safe_path_rejects_null_bytes(self):
         from k_zero_core.core.tool_safety import resolve_safe_path
@@ -77,6 +97,20 @@ class ToolSafetyTests(unittest.TestCase):
                 self.assertEqual(resolve_safe_path(str(child)), child.resolve())
                 with self.assertRaises(ValueError):
                     resolve_safe_path(str(root.parent / "escape.txt"))
+
+    def test_json_analysis_respects_opt_in_safe_roots(self):
+        from k_zero_core.core.tools.analisis_json import analizar_valores_json
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir).resolve()
+            allowed = root / "datos.json"
+            blocked = root.parent / "blocked.json"
+            allowed.write_text(json.dumps({"values": [1, 2, 3]}), encoding="utf-8")
+            blocked.write_text(json.dumps({"values": [99]}), encoding="utf-8")
+
+            with patch.dict(os.environ, {"K_ZERO_SAFE_PATH_ROOTS": str(root)}):
+                self.assertIn("Máximo: 3.0", analizar_valores_json(str(allowed)))
+                self.assertIn("fuera de K_ZERO_SAFE_PATH_ROOTS", analizar_valores_json(str(blocked)))
 
 
 class PromptComposerTests(unittest.TestCase):
@@ -171,6 +205,50 @@ class STTMenuTests(unittest.TestCase):
                 "language": "es",
             },
         )
+
+
+class AudioFileCaptureTests(unittest.TestCase):
+    def test_transcribe_file_source_uses_configured_file_path(self):
+        from k_zero_core.audio.file_capture import transcribe_file_source
+
+        class FakeStt:
+            def __init__(self):
+                self.paths = []
+
+            def transcribe_file(self, path):
+                self.paths.append(path)
+                return "texto transcrito"
+
+        stt = FakeStt()
+
+        result = transcribe_file_source(stt, {"filepath": "C:\\audio\\sample.wav"}, "file")
+
+        self.assertEqual(result, "texto transcrito")
+        self.assertEqual(stt.paths, ["C:\\audio\\sample.wav"])
+
+    def test_transcribe_file_source_cleans_youtube_temp_file(self):
+        from k_zero_core.audio.file_capture import transcribe_file_source
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
+            temp_path = tmp.name
+
+        class FakeStt:
+            def transcribe_file(self, path):
+                self.received = path
+                return "youtube transcrito"
+
+        stt = FakeStt()
+
+        result = transcribe_file_source(
+            stt,
+            {"youtube_url": "https://example.test/video"},
+            "youtube",
+            download_youtube_audio_func=lambda _url: temp_path,
+        )
+
+        self.assertEqual(result, "youtube transcrito")
+        self.assertEqual(stt.received, temp_path)
+        self.assertFalse(Path(temp_path).exists())
 
 
 class CLISessionSetupTests(unittest.TestCase):
@@ -333,7 +411,9 @@ class DirectorDeclarativeTests(unittest.TestCase):
     def test_role_definitions_keep_existing_role_order(self):
         from k_zero_core.modes.director_helpers import ROLE_DEFINITIONS, parse_roles
 
-        self.assertEqual(list(ROLE_DEFINITIONS), ["investigador", "analista", "tecnico"])
+        self.assertEqual(list(ROLE_DEFINITIONS)[:4], ["investigador", "analista", "tecnico", "voz"])
+        self.assertIn("documentalista", ROLE_DEFINITIONS)
+        self.assertIn("verificador", ROLE_DEFINITIONS)
         self.assertEqual(parse_roles("investigador, técnico, analista"), ["investigador", "analista", "tecnico"])
 
 

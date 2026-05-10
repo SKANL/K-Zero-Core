@@ -1,10 +1,26 @@
 from typing import List, Dict, Any, Optional, Generator
 
 import ollama
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from k_zero_core.core.exceptions import OllamaConnectionError
 from k_zero_core.core.tool_executor import execute_tool_calls
 from k_zero_core.services.providers.base_provider import AIProvider
+
+
+def _retryable_ollama_call(func, *args, **kwargs):
+    """Ejecuta una llamada a Ollama con backoff para cargas lentas del modelo local."""
+    return _retryable_ollama_call_impl(func, *args, **kwargs)
+
+
+@retry(
+    retry=retry_if_exception_type(Exception),
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=0.1, min=0.1, max=1),
+    reraise=True,
+)
+def _retryable_ollama_call_impl(func, *args, **kwargs):
+    return func(*args, **kwargs)
 
 
 class OllamaProvider(AIProvider):
@@ -21,7 +37,7 @@ class OllamaProvider(AIProvider):
     def get_available_models(self) -> List[str]:
         """Retorna los modelos instalados localmente en Ollama."""
         try:
-            response = ollama.list()
+            response = _retryable_ollama_call(ollama.list)
             return [m['model'] for m in response.get('models', [])]
         except Exception as e:
             raise OllamaConnectionError(
@@ -52,19 +68,20 @@ class OllamaProvider(AIProvider):
         """
         try:
             if tools:
-                response = ollama.chat(
+                response = _retryable_ollama_call(
+                    ollama.chat,
                     model=model, messages=messages, tools=tools, stream=False
                 )
                 
                 response_message = response.get('message', {})
                 if self._handle_tool_calls(response_message, messages, tools):
                     # Retomar streaming con los resultados de las herramientas en el historial
-                    stream = ollama.chat(model=model, messages=messages, stream=True)
+                    stream = _retryable_ollama_call(ollama.chat, model=model, messages=messages, stream=True)
                     for chunk in stream:
                         yield chunk['message']['content']
                     return
 
-            stream = ollama.chat(model=model, messages=messages, stream=True)
+            stream = _retryable_ollama_call(ollama.chat, model=model, messages=messages, stream=True)
             for chunk in stream:
                 if 'message' in chunk and 'content' in chunk['message']:
                     yield chunk['message']['content']

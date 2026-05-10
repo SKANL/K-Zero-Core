@@ -7,9 +7,9 @@ Provee:
 """
 
 import logging
-import os
 from typing import Optional
 
+from k_zero_core.audio.file_capture import FILE_SOURCES, transcribe_file_source
 from k_zero_core.modes.conversation_flow import EXIT_COMMANDS
 
 logger = logging.getLogger(__name__)
@@ -17,7 +17,6 @@ logger = logging.getLogger(__name__)
 # Fuentes de audio soportadas y sus métodos de captura
 _STREAMING_SOURCES = frozenset({"mic_stream"})
 _LIVE_SOURCES = frozenset({"mic", "mic_stream", "loopback"})
-_FILE_SOURCES = frozenset({"file", "youtube"})
 
 
 class IOHandler:
@@ -111,7 +110,7 @@ class IOHandler:
         """
         source = self.stt_config.get("source", "mic")
 
-        if source in _FILE_SOURCES:
+        if source in FILE_SOURCES:
             return self._capture_from_file(source)
 
         if source in _LIVE_SOURCES:
@@ -138,33 +137,7 @@ class IOHandler:
 
         self._file_transcribed = True
 
-        if source == "file":
-            filepath = self.stt_config.get("filepath", "")
-            if not filepath:
-                logger.error("stt_config['filepath'] no está definido.")
-                return ""
-            return self.stt.transcribe_file(filepath)
-
-        # source == "youtube"
-        url = self.stt_config.get("youtube_url", "")
-        if not url:
-            logger.error("stt_config['youtube_url'] no está definido.")
-            return ""
-
-        # Importación lazy: MediaDownloader solo se necesita para YouTube
-        from k_zero_core.audio.downloader import MediaDownloader
-
-        audio_path = MediaDownloader.download_youtube_audio(url)
-        try:
-            return self.stt.transcribe_file(audio_path)
-        finally:
-            # Eliminar el archivo temporal descargado en cualquier caso
-            if os.path.exists(audio_path):
-                try:
-                    os.remove(audio_path)
-                    logger.debug("Archivo temporal YouTube eliminado: %s", audio_path)
-                except OSError as e:
-                    logger.warning("No se pudo eliminar '%s': %s", audio_path, e)
+        return transcribe_file_source(self.stt, self.stt_config, source)
 
     def _capture_live(self, source: str) -> str:
         """

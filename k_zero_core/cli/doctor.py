@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -58,6 +59,9 @@ def run_doctor() -> DoctorReport:
         _check_import("chromadb", critical=True),
         _check_import("faster_whisper", critical=False),
         _check_import("edge_tts", critical=False),
+        _check_import("ddgs", critical=False),
+        _check_import("pydantic", critical=False),
+        _check_import("tenacity", critical=False),
     ]
 
     try:
@@ -92,6 +96,31 @@ def run_doctor() -> DoctorReport:
             "tools",
             True,
             "Todas las tools disponibles" if not unavailable else f"Tools con entorno faltante: {', '.join(unavailable)}",
+            critical=False,
+        )
+    )
+    configured_web = ["ddgs"]
+    if os.getenv("K_ZERO_SEARXNG_URL", "").strip():
+        configured_web.append("searxng")
+    if os.getenv("BRAVE_SEARCH_API_KEY", "").strip():
+        configured_web.append("brave-free")
+    if os.getenv("TAVILY_API_KEY", "").strip():
+        configured_web.append("tavily")
+    checks.append(
+        DoctorCheck(
+            "web_providers",
+            True,
+            "Orden configurado: " + " -> ".join(configured_web),
+            critical=False,
+        )
+    )
+
+    safe_roots = os.getenv("K_ZERO_SAFE_PATH_ROOTS", "").strip()
+    checks.append(
+        DoctorCheck(
+            "safe_path_roots",
+            True,
+            safe_roots or "No configurado; se usa la política por defecto del proyecto.",
             critical=False,
         )
     )

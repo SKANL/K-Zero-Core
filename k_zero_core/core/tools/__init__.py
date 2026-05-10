@@ -30,6 +30,38 @@ from k_zero_core.core.tools.analisis_json import analizar_valores_json
 from k_zero_core.core.tools.web_search import buscar_en_internet, buscar_tavily
 from k_zero_core.core.tools.web_reader import leer_pagina_web, extraer_wikipedia
 from k_zero_core.core.tools.rag_search import buscar_en_documentos_locales
+from k_zero_core.core.tools.memory import memory
+from k_zero_core.core.tools.todo import todo
+from k_zero_core.core.tools.local_files import (
+    buscar_archivos_locales,
+    inspeccionar_proyecto,
+    leer_metadatos_archivo,
+)
+from k_zero_core.core.tools.documents import (
+    analizar_archivos_frontend,
+    analizar_docx,
+    analizar_pdf,
+    analizar_pptx,
+    analizar_xlsx,
+    combinar_pdf_copia,
+    crear_docx,
+    crear_pdf,
+    crear_pptx,
+    crear_xlsx,
+    dividir_pdf_copia,
+    editar_docx_copia,
+    editar_pdf_copia,
+    editar_pptx_copia,
+    editar_xlsx_copia,
+    leer_archivo_inteligente,
+    validar_entregable,
+)
+from k_zero_core.core.tools.design_md import (
+    crear_design_md,
+    limpiar_markdown_entregable,
+    previsualizar_estilo_entregable,
+    validar_design_md,
+)
 from k_zero_core.core.tools.registry import ToolSpec, build_tool_specs
 
 # Registro de todas las tools disponibles
@@ -46,6 +78,32 @@ _ALL_TOOLS: List[Callable] = [
     leer_pagina_web,
     extraer_wikipedia,
     buscar_en_documentos_locales,
+    memory,
+    todo,
+    buscar_archivos_locales,
+    inspeccionar_proyecto,
+    leer_metadatos_archivo,
+    leer_archivo_inteligente,
+    analizar_docx,
+    crear_docx,
+    editar_docx_copia,
+    analizar_pdf,
+    crear_pdf,
+    editar_pdf_copia,
+    dividir_pdf_copia,
+    combinar_pdf_copia,
+    analizar_xlsx,
+    crear_xlsx,
+    editar_xlsx_copia,
+    analizar_pptx,
+    crear_pptx,
+    editar_pptx_copia,
+    analizar_archivos_frontend,
+    validar_entregable,
+    validar_design_md,
+    crear_design_md,
+    previsualizar_estilo_entregable,
+    limpiar_markdown_entregable,
 ]
 
 

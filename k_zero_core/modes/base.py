@@ -10,6 +10,9 @@ from k_zero_core.modes.conversation_flow import (
     normalize_command,
 )
 from k_zero_core.modes.mode_streaming import save_and_output_response, stream_text_response
+from k_zero_core.services.memory_reflection import MemoryReflectionService
+from k_zero_core.storage.memory_manager import TodoStore
+from k_zero_core.storage.session_manager import save_session
 
 
 class BaseMode(ABC):
@@ -49,6 +52,14 @@ class BaseMode(ABC):
         from k_zero_core.core.tools import get_all_tools
         return get_all_tools()
 
+    def get_memory_reflection_service(self) -> MemoryReflectionService:
+        """Servicio interno para confirmar y proponer memoria persistente."""
+        return MemoryReflectionService()
+
+    def get_todo_store(self) -> TodoStore:
+        """Store interno de tareas por sesión."""
+        return TodoStore()
+
     def on_start(self, chat_session: ChatSession, io_handler: IOHandler) -> None:
         """Optional hook to execute logic before the main loop starts."""
         pass
@@ -80,6 +91,42 @@ class BaseMode(ABC):
         save_and_output_response(chat_session, io_handler, response)
         return response
 
+    def _handle_memory_confirmation(self, chat_session: ChatSession, io_handler: IOHandler, user_text: str) -> bool:
+        """Procesa confirmación explícita de memoria pendiente sin invocar al LLM."""
+        result = self.get_memory_reflection_service().confirm_if_requested(chat_session, user_text)
+        if result is None:
+            return False
+
+        message = result.message
+        print(f"\n{message}")
+        chat_session.add_user_message(user_text)
+        chat_session.add_assistant_message(message)
+        save_session(
+            chat_session.session_id,
+            chat_session.messages,
+            chat_session.model,
+            chat_session.provider_key,
+            chat_session.metadata,
+        )
+        io_handler.output_response(message)
+        return True
+
+    def _maybe_offer_memory(self, chat_session: ChatSession, io_handler: IOHandler, user_text: str) -> None:
+        """Propone memoria persistente después de responder, sin guardarla aún."""
+        proposal = self.get_memory_reflection_service().consider_user_message(chat_session, user_text)
+        if not proposal:
+            return
+        print(f"\n{proposal}")
+        chat_session.add_assistant_message(proposal)
+        save_session(
+            chat_session.session_id,
+            chat_session.messages,
+            chat_session.model,
+            chat_session.provider_key,
+            chat_session.metadata,
+        )
+        io_handler.output_response(proposal)
+
     def run(self, chat_session: ChatSession, io_handler: IOHandler) -> None:
         """The main interaction loop (Template Method)."""
         print(f"\n--- Modo Activado: {self.get_name()} ---")
@@ -100,11 +147,15 @@ class BaseMode(ABC):
             if io_handler.input_type == 'audio':
                 print(f"Tú (Voz): {user_text}")
 
+            if self._handle_memory_confirmation(chat_session, io_handler, user_text):
+                continue
+
             chat_session.add_user_message(user_text)
 
             print(f"{chat_session.model} está pensando... ", end="", flush=True)
             tools = self.get_tools()
             self._stream_and_respond(chat_session, io_handler, tools=tools)
+            self._maybe_offer_memory(chat_session, io_handler, user_text)
 
 
 class AccumulatorMode(BaseMode):
@@ -180,4 +231,16 @@ class AccumulatorMode(BaseMode):
 
             acumulado.append(user_text)
 
-        self.process_accumulated(acumulado, chat_session, io_handler)
+        todo_store = self.get_todo_store()
+        task_id = f"{self.get_name().lower().replace(' ', '_')}_process"
+        if acumulado:
+            todo_store.set_plan(chat_session.session_id, [(task_id, f"Procesar {self.get_name()}")])
+            todo_store.update_status(chat_session.session_id, task_id, "running")
+        try:
+            self.process_accumulated(acumulado, chat_session, io_handler)
+        except Exception:
+            if acumulado:
+                todo_store.update_status(chat_session.session_id, task_id, "blocked")
+            raise
+        if acumulado:
+            todo_store.update_status(chat_session.session_id, task_id, "done")

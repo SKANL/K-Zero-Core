@@ -28,7 +28,15 @@ dependencies = [
     "psutil",
     "soundcard",
     "PyAudioWPatch",
-    "imageio-ffmpeg"
+    "imageio-ffmpeg",
+    "ddgs",
+    "pydantic",
+    "tenacity",
+    "python-docx",
+    "openpyxl",
+    "python-pptx",
+    "reportlab",
+    "PyYAML",
 ]
 
 [project.scripts]

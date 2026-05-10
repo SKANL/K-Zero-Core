@@ -2,24 +2,27 @@
 Modo Director Multi-Agente.
 Orquesta a otros "roles" especializados para generar una respuesta consolidada.
 """
-from collections.abc import Callable
-from typing import Any, List
+from typing import List
 
 from k_zero_core.modes.base import BaseMode
 from k_zero_core.modes.conversation_flow import EXIT_PROMPT_TEXT, is_exit_command
 from k_zero_core.modes.director_helpers import (
-    ROLE_LABELS,
-    ROLE_RESULT_HEADERS,
-    ROLE_TOOLS,
-    build_classifier_prompt,
+    DirectorRoleExecutor,
+    DirectorRouter,
+    ROLE_DEFINITIONS,
     build_director_context,
-    parse_roles,
 )
 from k_zero_core.modes.rag_helpers import restore_existing_rag_index
 from k_zero_core.services.chat_session import ChatSession
 from k_zero_core.audio.io_handler import IOHandler
+from k_zero_core.storage.memory_manager import TodoStore
+from k_zero_core.storage.session_manager import save_session
 
 class DirectorMode(BaseMode):
+    def __init__(self) -> None:
+        self._router = DirectorRouter()
+        self._role_executor = DirectorRoleExecutor()
+
     def get_name(self) -> str:
         return "Director Multi-Agente"
 
@@ -30,8 +33,11 @@ class DirectorMode(BaseMode):
         return (
             "Eres el Redactor Principal de un equipo multi-agente. Tu trabajo es leer la información "
             "recopilada por los especialistas y generar la respuesta final para el usuario. "
-            "Sé claro, directo y sintetizado. No debes mencionar cómo obtuviste la información a menos "
-            "que te pregunten. Habla directamente al usuario."
+            "Sé claro, directo y sintetizado. Si el contexto contiene resultados como 'Archivo creado:' "
+            "o 'Copia editada:', incluye esas rutas exactas en la respuesta final. No digas que no tienes "
+            "acceso a archivos locales cuando una herramienta ya accedió o escribió archivos. Si una edición "
+            "solicitada no se hizo, dilo como limitación concreta. No debes mencionar cómo obtuviste la "
+            "información a menos que te pregunten. Habla directamente al usuario."
         )
 
     def on_start(self, chat_session: ChatSession, io_handler: IOHandler) -> None:
@@ -68,32 +74,49 @@ class DirectorMode(BaseMode):
             if io_handler.input_type == 'audio':
                 print(f"Tú (Voz): {user_text}")
 
+            if self._handle_memory_confirmation(chat_session, io_handler, user_text):
+                continue
+
             print("Director clasificando requerimientos...", end="", flush=True)
-            
-            stream_clasif = chat_session.provider.stream_chat(
-                chat_session.model, 
-                [{"role": "user", "content": build_classifier_prompt(user_text)}]
-            )
-            roles_needed = "".join(list(stream_clasif)).lower()
-            print(f"\n[Roles asignados: {roles_needed.strip()}]")
+
+            roles = self._router.classify(chat_session.provider, chat_session.model, user_text)
+            print(f"\n[Roles asignados: {', '.join(roles) if roles else 'ninguno'}]")
             
             # 2. Ejecutar Sub-Agentes
-            sub_results: List[str] = []
-            for role in parse_roles(roles_needed):
-                label = ROLE_LABELS[role]
-                print(f"  -> Ejecutando [{label}]...", end="", flush=True)
-                res = self._run_sub_agent(
-                    chat_session.provider,
-                    chat_session.model,
-                    label,
-                    ROLE_TOOLS[role],
-                    user_text,
-                )
-                sub_results.append(f"{ROLE_RESULT_HEADERS[role]}:\n{res}")
+            selected_roles = [ROLE_DEFINITIONS[role] for role in roles]
+            if selected_roles:
+                labels = ", ".join(role.label for role in selected_roles)
+                print(f"  -> Ejecutando especialistas en paralelo: {labels}...", end="", flush=True)
+            role_executor = DirectorRoleExecutor(
+                max_workers=self._role_executor.max_workers,
+                todo_store=TodoStore(),
+                session_id=chat_session.session_id,
+            )
+            sub_results: List[str] = role_executor.run_roles(
+                chat_session.provider,
+                chat_session.model,
+                selected_roles,
+                user_text,
+            )
+            if selected_roles:
                 print(" listo.")
                 
             # 3. Redactor (Síntesis)
-            contexto_extra = build_director_context(sub_results)
+            contexto_extra = build_director_context(sub_results, roles=roles)
+            if "FUENTES REQUERIDAS:" in contexto_extra:
+                message = contexto_extra.strip()
+                print(f"\n[Director]: {message}\n")
+                chat_session.add_user_message(user_text)
+                chat_session.add_assistant_message(message)
+                save_session(
+                    chat_session.session_id,
+                    chat_session.messages,
+                    chat_session.model,
+                    chat_session.provider_key,
+                    chat_session.metadata,
+                )
+                io_handler.output_response(message)
+                continue
                 
             # Agregamos la consulta original con el contexto secreto
             chat_session.add_user_message(user_text + contexto_extra)
@@ -103,24 +126,12 @@ class DirectorMode(BaseMode):
             
             # Limpiar el contexto para que la memoria no crezca infinitamente con datos repetidos
             chat_session.messages[-2] = {"role": "user", "content": user_text}
+            save_session(
+                chat_session.session_id,
+                chat_session.messages,
+                chat_session.model,
+                chat_session.provider_key,
+                chat_session.metadata,
+            )
+            self._maybe_offer_memory(chat_session, io_handler, user_text)
             
-    def _run_sub_agent(
-        self,
-        provider: Any,
-        model: str,
-        role_name: str,
-        tools: List[Callable],
-        query: str,
-    ) -> str:
-        sys_prompt = f"Eres un {role_name}. Usa tus herramientas para resolver la consulta. Sé directo, solo entrega los datos encontrados sin saludos."
-        messages = [
-            {"role": "system", "content": sys_prompt},
-            {"role": "user", "content": query}
-        ]
-        try:
-            # Usamos el generador para ejecutar las tools silenciosamente
-            stream = provider.stream_chat(model, messages, tools=tools)
-            respuesta = "".join(list(stream))
-            return respuesta
-        except Exception as e:
-            return f"Error en el especialista {role_name}: {str(e)}"

@@ -2,6 +2,9 @@ import json
 import statistics
 from typing import Union, List
 
+from k_zero_core.core.tool_safety import resolve_safe_path
+
+
 def _extraer_numeros(datos: Union[dict, list, int, float, str, bool]) -> List[float]:
     """
     Recorre recursivamente una estructura de datos y extrae todos los valores numéricos.
@@ -27,10 +30,15 @@ def analizar_valores_json(ruta_archivo: str) -> str:
         Un string con el valor máximo, la mediana y el valor mínimo encontrados, o un mensaje de error si el archivo no existe o el JSON es inválido.
     """
     try:
-        with open(ruta_archivo, 'r', encoding='utf-8') as f:
+        path = resolve_safe_path(ruta_archivo)
+    except ValueError as e:
+        return f"Error: {e}"
+
+    try:
+        with path.open("r", encoding="utf-8") as f:
             datos = json.load(f)
     except FileNotFoundError:
-        return f"Error: No se encontró el archivo en la ruta '{ruta_archivo}'."
+        return f"Error: No se encontró el archivo en la ruta '{path}'."
     except json.JSONDecodeError as e:
         return f"Error: El formato JSON en el archivo no es válido. {str(e)}"
     except Exception as e:

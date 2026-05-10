@@ -29,6 +29,8 @@ data/sessions/
 data/vector_store/
 data/braindump_*.md
 data/transcripciones/
+data/exports/
+data/memory/
 
 # Mantener la carpeta data pero ignorar su contenido exceptuando prompts.json si fuera necesario
 # (En este caso prompts.json es parte del código/config, así que no lo ignoramos)

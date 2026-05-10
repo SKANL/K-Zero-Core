@@ -4,7 +4,8 @@ Herramientas para leer y extraer contenido de páginas web y Wikipedia.
 import json
 import urllib.request
 import urllib.parse
-from k_zero_core.core.exceptions import WebToolError
+
+from k_zero_core.core.source_tracking import format_sources_block
 
 def leer_pagina_web(url: str, max_chars: int = 15000) -> str:
     """
@@ -34,11 +35,10 @@ def leer_pagina_web(url: str, max_chars: int = 15000) -> str:
             contenido = response.read().decode('utf-8')
             
         if len(contenido) > max_chars:
-            return contenido[:max_chars] + f"\n\n[...contenido truncado a {max_chars} caracteres...]"
-            
-        return contenido
+            contenido = contenido[:max_chars] + f"\n\n[...contenido truncado a {max_chars} caracteres...]"
+        return format_sources_block(f"URL consultada: {url}\n\n{contenido}")
     except Exception as e:
-        raise WebToolError(f"Error al extraer la página web '{url}': {str(e)}")
+        return f"Error al extraer la página web '{url}': {str(e)}"
 
 
 def extraer_wikipedia(tema: str, idioma: str = "es") -> str:
@@ -77,8 +77,9 @@ def extraer_wikipedia(tema: str, idioma: str = "es") -> str:
         for page_id, page_info in pages.items():
             if page_id != "-1":
                 extract = page_info.get("extract", "No hay extracto disponible.")
-                return f"Resumen de Wikipedia para '{titulo}':\n\n{extract}"
+                article_url = f"https://{idioma}.wikipedia.org/wiki/{urllib.parse.quote(titulo.replace(' ', '_'))}"
+                return format_sources_block(f"Resumen de Wikipedia para '{titulo}':\nURL: {article_url}\n\n{extract}")
                 
         return f"No se pudo extraer contenido para '{titulo}'."
     except Exception as e:
-        raise WebToolError(f"Error al consultar Wikipedia: {str(e)}")
+        return f"Error al consultar Wikipedia: {str(e)}"

@@ -2,10 +2,12 @@
 from collections.abc import Callable
 from typing import Any
 
+from k_zero_core.core.deliverable_intents import deliverable_intent_key
 from k_zero_core.core.tool_output import prepare_tool_result
+from k_zero_core.core.tools.registry import ToolPermission, ToolSpec, build_tool_specs
 
 
-ToolCallable = Callable[..., Any]
+ToolCallable = Callable[..., Any] | ToolSpec
 
 
 def make_serializable(obj: Any) -> Any:
@@ -25,9 +27,22 @@ def make_serializable(obj: Any) -> Any:
     return obj
 
 
-def find_tool_by_name(tools: list[ToolCallable], name: str) -> ToolCallable | None:
-    """Busca una tool callable por su atributo __name__."""
-    return next((tool for tool in tools if getattr(tool, "__name__", "") == name), None)
+def _normalize_tool_specs(tools: list[ToolCallable]) -> list[ToolSpec]:
+    """Convierte callables y ToolSpec al mismo contrato interno."""
+    specs: list[ToolSpec] = []
+    callables: list[Callable] = []
+    for tool in tools:
+        if isinstance(tool, ToolSpec):
+            specs.append(tool)
+        else:
+            callables.append(tool)
+    specs.extend(build_tool_specs(callables))
+    return specs
+
+
+def find_tool_by_name(tools: list[ToolCallable], name: str) -> ToolSpec | None:
+    """Busca una tool por nombre y retorna su metadata."""
+    return next((tool for tool in _normalize_tool_specs(tools) if tool.name == name), None)
 
 
 def execute_tool_calls(
@@ -47,24 +62,46 @@ def execute_tool_calls(
 
     messages.append(make_serializable(response_message))
 
+    seen_write_intents: set[tuple[str, str]] = set()
+
     for tool_call in tool_calls:
         function_call = tool_call["function"]
         function_name = function_call["name"]
         arguments = function_call["arguments"]
-        function_to_call = find_tool_by_name(tools, function_name)
-        if not function_to_call:
+        spec = find_tool_by_name(tools, function_name)
+        if not spec:
             continue
 
         print(f"\n[Agente ejecutando: {function_name}({arguments})]")
-        try:
-            result = function_to_call(**arguments)
-        except Exception as exc:
-            result = f"Error ejecutando herramienta: {exc}"
+        intent_key = deliverable_intent_key(function_name, arguments)
+        if intent_key is not None and intent_key in seen_write_intents:
+            result = (
+                f"Escritura duplicada bloqueada: ya existe una intención para "
+                f"{intent_key[0]} '{intent_key[1]}' en este turno."
+            )
+        elif spec.permission == ToolPermission.DENY:
+            result = f"Herramienta bloqueada por política: {function_name}"
+        elif spec.permission == ToolPermission.ASK:
+            result = (
+                f"La herramienta '{function_name}' requiere confirmación explícita "
+                "antes de ejecutarse. En este flujo aún no hay confirmación interactiva."
+            )
+        else:
+            try:
+                validated_arguments = spec.validate_arguments(arguments)
+                result = spec.func(**validated_arguments)
+                if intent_key is not None:
+                    seen_write_intents.add(intent_key)
+            except Exception as exc:
+                if spec.validation_error(arguments):
+                    result = f"Argumentos inválidos para '{function_name}': {spec.validation_error(arguments)}"
+                else:
+                    result = f"Error ejecutando herramienta: {exc}"
 
         messages.append(
             {
                 "role": "tool",
-                "content": prepare_tool_result(result),
+                "content": prepare_tool_result(result, max_inline_chars=spec.max_inline_chars),
                 "name": function_name,
             }
         )
