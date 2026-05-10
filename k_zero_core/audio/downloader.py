@@ -48,7 +48,7 @@ class MediaDownloader:
                 "yt-dlp no está instalado. Instálalo con: uv pip install yt-dlp"
             )
 
-        logger.info("Descargando audio de YouTube: %s", url)
+        logger.info("Descargando audio de YouTube.")
         print(f"⏳ Descargando audio de YouTube... ({url})")
 
         # Crear un archivo temporal con nombre único para evitar colisiones

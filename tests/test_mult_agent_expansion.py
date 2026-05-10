@@ -70,7 +70,30 @@ class DocumentToolTests(unittest.TestCase):
                 pptx_result = crear_pptx("# Portada\n\n## Seccion\n\nContenido", "deck")
 
         self.assertIn(".xlsx", xlsx_result)
+        self.assertIn("Tipo: xlsx", xlsx_result)
         self.assertIn(".pptx", pptx_result)
+
+    def test_pdf_copy_tools_report_pdf_output_type(self):
+        from pypdf import PdfWriter
+
+        from k_zero_core.core.tools.documents import combinar_pdf_copia, dividir_pdf_copia
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            source = root / "source.pdf"
+            second = root / "second.pdf"
+            for path in (source, second):
+                writer = PdfWriter()
+                writer.add_blank_page(width=72, height=72)
+                with path.open("wb") as file:
+                    writer.write(file)
+
+            with patch("k_zero_core.core.tools.documents.EXPORTS_DIR", root / "exports"):
+                split_result = dividir_pdf_copia(str(source), "1")
+                combined_result = combinar_pdf_copia(f"{source};{second}", "combined")
+
+        self.assertIn("Tipo: pdf", split_result)
+        self.assertIn("Tipo: pdf", combined_result)
 
 
 class SourceTrackingTests(unittest.TestCase):

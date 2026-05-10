@@ -1,5 +1,6 @@
 """Helpers internos para ejecutar tool calls solicitadas por providers."""
 from collections.abc import Callable
+import logging
 from typing import Any
 
 from k_zero_core.core.deliverable_intents import deliverable_intent_key
@@ -8,6 +9,8 @@ from k_zero_core.core.tools.registry import ToolPermission, ToolSpec, build_tool
 
 
 ToolCallable = Callable[..., Any] | ToolSpec
+logger = logging.getLogger(__name__)
+SENSITIVE_ARGUMENT_KEYS = ("api_key", "authorization", "password", "secret", "token", "url")
 
 
 def make_serializable(obj: Any) -> Any:
@@ -45,6 +48,22 @@ def find_tool_by_name(tools: list[ToolCallable], name: str) -> ToolSpec | None:
     return next((tool for tool in _normalize_tool_specs(tools) if tool.name == name), None)
 
 
+def _redact_arguments(value: Any) -> Any:
+    """Oculta valores sensibles antes de escribir argumentos en logs."""
+    if isinstance(value, dict):
+        redacted: dict[str, Any] = {}
+        for key, item in value.items():
+            key_text = str(key).casefold()
+            if any(sensitive in key_text for sensitive in SENSITIVE_ARGUMENT_KEYS):
+                redacted[key] = "<redacted>"
+            else:
+                redacted[key] = _redact_arguments(item)
+        return redacted
+    if isinstance(value, list):
+        return [_redact_arguments(item) for item in value]
+    return value
+
+
 def execute_tool_calls(
     response_message: dict[str, Any],
     messages: list[dict[str, Any]],
@@ -72,7 +91,8 @@ def execute_tool_calls(
         if not spec:
             continue
 
-        print(f"\n[Agente ejecutando: {function_name}({arguments})]")
+        logger.info("Ejecutando tool: %s", function_name)
+        logger.debug("Argumentos de tool %s: %s", function_name, _redact_arguments(arguments))
         intent_key = deliverable_intent_key(function_name, arguments)
         if intent_key is not None and intent_key in seen_write_intents:
             result = (

@@ -8,9 +8,12 @@ Flujo de uso:
     chunks = engine.search(query, collection_id)  # por cada pregunta
 """
 from typing import List
+import logging
 
 from k_zero_core.services.embeddings import EmbeddingClient, OllamaEmbeddingClient
 from k_zero_core.services.vector_store import VectorStore
+
+logger = logging.getLogger(__name__)
 
 
 class RagEngine:
@@ -31,6 +34,7 @@ class RagEngine:
     CHUNK_OVERLAP = 50   # palabras de solapamiento para no perder contexto en los bordes
     DOC_PREFIX = "search_document: "   # prefijo recomendado por nomic para documentos
     QUERY_PREFIX = "search_query: "    # prefijo recomendado por nomic para consultas
+    EMBEDDING_BATCH_SIZE = 50
 
     def __init__(
         self,
@@ -69,22 +73,21 @@ class RagEngine:
         """
         chunks = self._chunk_text(text)
         total = len(chunks)
-        print(f"  Fragmentando en {total} bloques...")
+        logger.info("Fragmentando en %s bloques...", total)
 
         # Prefijo "search_document: " recomendado por nomic para documentos indexados
         prefixed = [f"{self.DOC_PREFIX}{chunk}" for chunk in chunks]
 
-        print(f"  Generando embeddings con '{self.embedding_model}'...")
-        BATCH_SIZE = 50
+        logger.info("Generando embeddings con '%s'...", self.embedding_model)
         embeddings: List[List[float]] = []
         # Dividir en lotes para no sobrecargar al backend de embeddings.
-        for i in range(0, len(prefixed), BATCH_SIZE):
-            batch = prefixed[i:i + BATCH_SIZE]
+        for i in range(0, len(prefixed), self.EMBEDDING_BATCH_SIZE):
+            batch = prefixed[i:i + self.EMBEDDING_BATCH_SIZE]
             embeddings.extend(
                 self._embedding_client.embed_documents(self.embedding_model, batch)
             )
 
-        print("  Guardando en base de datos vectorial...")
+        logger.info("Guardando en base de datos vectorial...")
         self._store.store(collection_id, chunks, embeddings)
         return total
 

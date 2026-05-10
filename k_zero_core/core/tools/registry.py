@@ -14,6 +14,7 @@ class ToolPermission(StrEnum):
     """Nivel mínimo de permiso requerido para ejecutar una tool."""
 
     READ_ONLY = "read_only"
+    WRITE_LOCAL = "write_local"
     ASK = "ask"
     DENY = "deny"
 
@@ -80,23 +81,23 @@ TOOL_METADATA: dict[str, dict[str, Any]] = {
     "leer_metadatos_archivo": {"toolset": "filesystem_safe", "permission": ToolPermission.READ_ONLY},
     "leer_archivo_inteligente": {"toolset": "documents", "permission": ToolPermission.READ_ONLY},
     "analizar_docx": {"toolset": "documents", "permission": ToolPermission.READ_ONLY},
-    "crear_docx": {"toolset": "documents", "permission": ToolPermission.READ_ONLY},
-    "editar_docx_copia": {"toolset": "documents", "permission": ToolPermission.READ_ONLY},
+    "crear_docx": {"toolset": "documents", "permission": ToolPermission.WRITE_LOCAL},
+    "editar_docx_copia": {"toolset": "documents", "permission": ToolPermission.WRITE_LOCAL},
     "analizar_pdf": {"toolset": "documents", "permission": ToolPermission.READ_ONLY},
-    "crear_pdf": {"toolset": "documents", "permission": ToolPermission.READ_ONLY},
-    "editar_pdf_copia": {"toolset": "documents", "permission": ToolPermission.READ_ONLY},
-    "dividir_pdf_copia": {"toolset": "documents", "permission": ToolPermission.READ_ONLY},
-    "combinar_pdf_copia": {"toolset": "documents", "permission": ToolPermission.READ_ONLY},
+    "crear_pdf": {"toolset": "documents", "permission": ToolPermission.WRITE_LOCAL},
+    "editar_pdf_copia": {"toolset": "documents", "permission": ToolPermission.WRITE_LOCAL},
+    "dividir_pdf_copia": {"toolset": "documents", "permission": ToolPermission.WRITE_LOCAL},
+    "combinar_pdf_copia": {"toolset": "documents", "permission": ToolPermission.WRITE_LOCAL},
     "analizar_xlsx": {"toolset": "documents", "permission": ToolPermission.READ_ONLY},
-    "crear_xlsx": {"toolset": "documents", "permission": ToolPermission.READ_ONLY},
-    "editar_xlsx_copia": {"toolset": "documents", "permission": ToolPermission.READ_ONLY},
+    "crear_xlsx": {"toolset": "documents", "permission": ToolPermission.WRITE_LOCAL},
+    "editar_xlsx_copia": {"toolset": "documents", "permission": ToolPermission.WRITE_LOCAL},
     "analizar_pptx": {"toolset": "documents", "permission": ToolPermission.READ_ONLY},
-    "crear_pptx": {"toolset": "documents", "permission": ToolPermission.READ_ONLY},
-    "editar_pptx_copia": {"toolset": "documents", "permission": ToolPermission.READ_ONLY},
+    "crear_pptx": {"toolset": "documents", "permission": ToolPermission.WRITE_LOCAL},
+    "editar_pptx_copia": {"toolset": "documents", "permission": ToolPermission.WRITE_LOCAL},
     "analizar_archivos_frontend": {"toolset": "frontend", "permission": ToolPermission.READ_ONLY},
     "validar_entregable": {"toolset": "validation", "permission": ToolPermission.READ_ONLY},
     "validar_design_md": {"toolset": "design", "permission": ToolPermission.READ_ONLY},
-    "crear_design_md": {"toolset": "design", "permission": ToolPermission.READ_ONLY},
+    "crear_design_md": {"toolset": "design", "permission": ToolPermission.WRITE_LOCAL},
     "previsualizar_estilo_entregable": {"toolset": "design", "permission": ToolPermission.READ_ONLY},
     "limpiar_markdown_entregable": {"toolset": "design", "permission": ToolPermission.READ_ONLY},
 }

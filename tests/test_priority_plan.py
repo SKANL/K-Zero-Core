@@ -107,6 +107,33 @@ class ToolMetadataAndExecutorTests(unittest.TestCase):
         self.assertEqual(len(calls), 1)
         self.assertIn("duplicada", messages[-1]["content"].lower())
 
+    def test_write_local_permission_executes_without_confirmation(self):
+        from k_zero_core.core.tool_executor import execute_tool_calls
+        from k_zero_core.core.tools.registry import ToolPermission, ToolSpec
+
+        calls = []
+
+        def crear_archivo(nombre: str) -> str:
+            calls.append(nombre)
+            return f"Archivo creado: {nombre}"
+
+        spec = ToolSpec(
+            "crear_archivo",
+            crear_archivo,
+            permission=ToolPermission.WRITE_LOCAL,
+            toolset="documents",
+        )
+        messages = [{"role": "user", "content": "crea"}]
+        response_message = {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [{"function": {"name": "crear_archivo", "arguments": {"nombre": "demo.txt"}}}],
+        }
+
+        self.assertTrue(execute_tool_calls(response_message, messages, [spec]))
+        self.assertEqual(calls, ["demo.txt"])
+        self.assertIn("Archivo creado: demo.txt", messages[-1]["content"])
+
 
 class WebProviderStrategyTests(unittest.TestCase):
     def test_buscar_en_internet_uses_ddgs_first(self):

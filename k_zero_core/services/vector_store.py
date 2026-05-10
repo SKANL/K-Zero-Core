@@ -4,10 +4,14 @@ Wrapper sobre ChromaDB PersistentClient para almacenar y buscar embeddings de do
 Usa embeddings pre-computados (provistos por Ollama) en lugar del sistema de
 embedding interno de ChromaDB. Los datos se persisten en VECTOR_STORE_DIR.
 """
+import logging
+
 import chromadb
 from typing import List
 
 from k_zero_core.core.config import VECTOR_STORE_DIR
+
+logger = logging.getLogger(__name__)
 
 
 class VectorStore:
@@ -35,7 +39,8 @@ class VectorStore:
         try:
             col = self._client.get_collection(name=collection_id)
             return col.count() > 0
-        except Exception:
+        except Exception as exc:
+            logger.debug("Colección ChromaDB '%s' no disponible: %s", collection_id, exc)
             return False
 
     def store(
@@ -89,7 +94,8 @@ class VectorStore:
                 include=["documents"],
             )
             return results["documents"][0] if results["documents"] else []
-        except Exception:
+        except Exception as exc:
+            logger.warning("Error buscando en colección ChromaDB '%s': %s", collection_id, exc)
             return []
 
     def delete_collection(self, collection_id: str) -> None:
@@ -101,8 +107,8 @@ class VectorStore:
         """
         try:
             self._client.delete_collection(name=collection_id)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("No se pudo eliminar colección ChromaDB '%s': %s", collection_id, exc)
 
     def cleanup_orphan_collections(self, active_ids: set[str]) -> int:
         """
@@ -125,5 +131,5 @@ class VectorStore:
                     self._client.delete_collection(name=col_name)
                     deleted_count += 1
         except Exception as e:
-            print(f"⚠️ Error limpiando colecciones en ChromaDB: {e}")
+            logger.warning("Error limpiando colecciones en ChromaDB: %s", e)
         return deleted_count

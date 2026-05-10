@@ -1,5 +1,9 @@
 # Lista global para evitar que el Garbage Collector elimine los handles en Windows
+import logging
+
+
 dll_handles = []
+logger = logging.getLogger(__name__)
 
 def fix_cuda_paths():
     """
@@ -56,4 +60,4 @@ def fix_cuda_paths():
                             # 2. Inyectar en el PATH nativo (Crucial para C++)
                             os.environ["PATH"] = bin_str + os.pathsep + os.environ.get("PATH", "")
     except Exception as e:
-        print(f"Error inicializando CUDA paths: {e}")
+        logger.warning("Error inicializando CUDA paths: %s", e)

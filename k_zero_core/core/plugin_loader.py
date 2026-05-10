@@ -1,7 +1,6 @@
 import importlib.util
 import os
 import sys
-import traceback
 import logging
 
 from k_zero_core.core.config import PLUGINS_DIR
@@ -31,6 +30,5 @@ def load_external_plugins() -> None:
                     spec.loader.exec_module(module)
                     logger.info("Plugin cargado exitosamente: %s", filename)
             except Exception as e:
-                logger.error("Error al cargar el plugin %s: %s", filename, e)
+                logger.exception("Error al cargar el plugin %s", filename)
                 print(f"⚠️  Error cargando plugin '{filename}': {e}")
-                # traceback.print_exc()

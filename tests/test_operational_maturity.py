@@ -1,8 +1,11 @@
 import json
+import io
+import logging
 import os
 import tempfile
 import unittest
 from pathlib import Path
+from contextlib import redirect_stdout
 from unittest.mock import patch
 
 
@@ -16,6 +19,29 @@ class ToolRegistryTests(unittest.TestCase):
         self.assertEqual([tool.__name__ for tool in tools], [spec.name for spec in specs])
         self.assertTrue(all(spec.func in tools for spec in specs))
         self.assertLessEqual(len(get_available_tool_specs()), len(specs))
+
+    def test_document_write_tools_are_marked_write_local(self):
+        from k_zero_core.core.tools import get_tool_specs
+        from k_zero_core.core.tools.registry import ToolPermission
+
+        specs = {spec.name: spec for spec in get_tool_specs()}
+
+        for name in {
+            "crear_docx",
+            "editar_docx_copia",
+            "crear_pdf",
+            "editar_pdf_copia",
+            "dividir_pdf_copia",
+            "combinar_pdf_copia",
+            "crear_xlsx",
+            "editar_xlsx_copia",
+            "crear_pptx",
+            "editar_pptx_copia",
+            "crear_design_md",
+        }:
+            self.assertEqual(specs[name].permission, ToolPermission.WRITE_LOCAL, name)
+
+        self.assertEqual(specs["analizar_pdf"].permission, ToolPermission.READ_ONLY)
 
 
 class ToolOutputTests(unittest.TestCase):
@@ -56,6 +82,42 @@ class ToolExecutorTests(unittest.TestCase):
         self.assertTrue(execute_tool_calls(response_message, messages, [sumar]))
         self.assertEqual(messages[-1], {"role": "tool", "content": "5", "name": "sumar"})
         self.assertEqual(messages[1]["tool_calls"][0]["function"]["name"], "sumar")
+
+    def test_execute_tool_calls_logs_tool_name_without_stdout_or_sensitive_info(self):
+        from k_zero_core.core.tool_executor import execute_tool_calls
+
+        def guardar(api_key: str, url: str, nombre: str) -> str:
+            return f"guardado {nombre}"
+
+        messages = [{"role": "user", "content": "guarda"}]
+        response_message = {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "function": {
+                        "name": "guardar",
+                        "arguments": {
+                            "api_key": "sk-secret",
+                            "url": "https://example.test/private",
+                            "nombre": "demo",
+                        },
+                    }
+                }
+            ],
+        }
+
+        stdout = io.StringIO()
+        with self.assertLogs("k_zero_core.core.tool_executor", level="INFO") as logs:
+            with redirect_stdout(stdout):
+                self.assertTrue(execute_tool_calls(response_message, messages, [guardar]))
+
+        output = stdout.getvalue()
+        joined_logs = "\n".join(logs.output)
+        self.assertNotIn("[Agente ejecutando", output)
+        self.assertIn("Ejecutando tool: guardar", joined_logs)
+        self.assertNotIn("sk-secret", joined_logs)
+        self.assertNotIn("https://example.test/private", joined_logs)
 
 
 class WebToolErrorHandlingTests(unittest.TestCase):
@@ -344,6 +406,11 @@ class RAGSearchContextTests(unittest.TestCase):
 
 
 class RagEngineEmbeddingClientTests(unittest.TestCase):
+    def test_ingest_uses_named_batch_size_constant(self):
+        from k_zero_core.services.rag_engine import RagEngine
+
+        self.assertEqual(RagEngine.EMBEDDING_BATCH_SIZE, 50)
+
     def test_ingest_uses_injected_embedding_client_for_document_batches(self):
         from k_zero_core.services.rag_engine import RagEngine
 
@@ -376,6 +443,31 @@ class RagEngineEmbeddingClientTests(unittest.TestCase):
         self.assertEqual(embeddings.document_calls[0][1], ["search_document: Una oración. Otra oración."])
         self.assertEqual(store.stored[0], "doc-1")
         self.assertEqual(store.stored[2], [[0.0]])
+
+    def test_ingest_reports_progress_with_logger_not_stdout(self):
+        from k_zero_core.services.rag_engine import RagEngine
+
+        class FakeStore:
+            def store(self, _collection_id, _chunks, _embeddings):
+                return None
+
+        class FakeEmbeddingClient:
+            def embed_documents(self, _model, texts):
+                return [[1.0] for _text in texts]
+
+        engine = RagEngine("embed-model", FakeStore(), embedding_client=FakeEmbeddingClient())
+        stdout = io.StringIO()
+
+        with self.assertLogs("k_zero_core.services.rag_engine", level="INFO") as logs:
+            with redirect_stdout(stdout):
+                total = engine.ingest("Una oración. Otra oración.", "doc-1")
+
+        self.assertEqual(total, 1)
+        self.assertEqual(stdout.getvalue(), "")
+        joined_logs = "\n".join(logs.output)
+        self.assertIn("Fragmentando en 1 bloques", joined_logs)
+        self.assertIn("Generando embeddings con 'embed-model'", joined_logs)
+        self.assertIn("Guardando en base de datos vectorial", joined_logs)
 
     def test_search_uses_injected_embedding_client_for_query(self):
         from k_zero_core.services.rag_engine import RagEngine
@@ -415,6 +507,81 @@ class DirectorDeclarativeTests(unittest.TestCase):
         self.assertIn("documentalista", ROLE_DEFINITIONS)
         self.assertIn("verificador", ROLE_DEFINITIONS)
         self.assertEqual(parse_roles("investigador, técnico, analista"), ["investigador", "analista", "tecnico"])
+
+
+class VectorStoreLoggingTests(unittest.TestCase):
+    def test_search_logs_chromadb_errors_and_returns_empty_list(self):
+        from k_zero_core.services import vector_store
+        from k_zero_core.services.vector_store import VectorStore
+
+        class FailingClient:
+            def get_collection(self, name):
+                raise RuntimeError(f"fallo {name}")
+
+        with patch.object(vector_store.chromadb, "PersistentClient", return_value=FailingClient()):
+            store = VectorStore()
+            with self.assertLogs("k_zero_core.services.vector_store", level="WARNING") as logs:
+                result = store.search("doc-1", [1.0], top_k=1)
+
+        self.assertEqual(result, [])
+        self.assertIn("Error buscando en colección ChromaDB 'doc-1'", "\n".join(logs.output))
+
+    def test_cleanup_logs_chromadb_errors_and_returns_zero_without_stdout(self):
+        from k_zero_core.services import vector_store
+        from k_zero_core.services.vector_store import VectorStore
+
+        class FailingClient:
+            def list_collections(self):
+                raise RuntimeError("cleanup down")
+
+        with patch.object(vector_store.chromadb, "PersistentClient", return_value=FailingClient()):
+            store = VectorStore()
+            stdout = io.StringIO()
+            with self.assertLogs("k_zero_core.services.vector_store", level="WARNING") as logs:
+                with redirect_stdout(stdout):
+                    result = store.cleanup_orphan_collections(set())
+
+        self.assertEqual(result, 0)
+        self.assertEqual(stdout.getvalue(), "")
+        self.assertIn("Error limpiando colecciones en ChromaDB", "\n".join(logs.output))
+
+
+class LoggingConfigTests(unittest.TestCase):
+    def tearDown(self):
+        from k_zero_core.core.logging_config import configure_logging
+
+        configure_logging(level="WARNING")
+
+    def test_configure_logging_uses_warning_by_default_and_avoids_duplicate_handlers(self):
+        from k_zero_core.core.logging_config import configure_logging
+
+        logger = logging.getLogger("k_zero_core")
+        configure_logging()
+        first_count = len(logger.handlers)
+        self.assertEqual(logger.level, logging.WARNING)
+
+        configure_logging()
+
+        self.assertEqual(len(logger.handlers), first_count)
+
+    def test_configure_logging_supports_verbose_env_level_and_log_file(self):
+        from k_zero_core.core.logging_config import configure_logging
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_path = Path(tmpdir) / "k-zero.log"
+            with patch.dict(os.environ, {"K_ZERO_LOG_LEVEL": "ERROR", "K_ZERO_LOG_FILE": str(log_path)}):
+                configure_logging(verbose=True)
+
+            logger = logging.getLogger("k_zero_core")
+            for handler in logger.handlers:
+                if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
+                    handler.setLevel(logging.CRITICAL + 1)
+            logger.error("mensaje de prueba")
+
+            self.assertEqual(logger.level, logging.INFO)
+            self.assertTrue(log_path.exists())
+            self.assertIn("mensaje de prueba", log_path.read_text(encoding="utf-8"))
+            configure_logging(level="WARNING")
 
 
 if __name__ == "__main__":
