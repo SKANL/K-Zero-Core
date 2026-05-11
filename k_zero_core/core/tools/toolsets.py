@@ -4,6 +4,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from k_zero_core.core.tools import get_tool_specs
+from k_zero_core.core.tools.registry import ToolSpec
 
 TOOLSETS: dict[str, tuple[str, ...]] = {
     "research": (
@@ -84,4 +85,29 @@ def resolve_toolset(name: str, visited: set[str] | None = None) -> list[Callable
         if tool_name and tool_name not in seen:
             seen.add(tool_name)
             deduped.append(tool)
+    return deduped
+
+
+def resolve_toolset_specs(name: str, visited: set[str] | None = None) -> list[ToolSpec]:
+    """Resuelve un toolset a ToolSpec, preservando orden y evitando ciclos."""
+    if visited is None:
+        visited = set()
+    if name in visited:
+        return []
+    visited.add(name)
+
+    resolved: list[ToolSpec] = []
+    by_name = {spec.name: spec for spec in get_tool_specs()}
+    for item in TOOLSETS.get(name, ()):
+        if item in TOOLSETS:
+            resolved.extend(resolve_toolset_specs(item, visited))
+        elif item in by_name:
+            resolved.append(by_name[item])
+
+    deduped: list[ToolSpec] = []
+    seen: set[str] = set()
+    for spec in resolved:
+        if spec.name not in seen:
+            seen.add(spec.name)
+            deduped.append(spec)
     return deduped

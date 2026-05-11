@@ -6,13 +6,8 @@ from typing import List
 
 from k_zero_core.modes.base import BaseMode
 from k_zero_core.modes.conversation_flow import EXIT_PROMPT_TEXT, is_exit_command
-from k_zero_core.modes.director_helpers import (
-    DirectorRoleExecutor,
-    DirectorRouter,
-    ROLE_DEFINITIONS,
-    build_director_context,
-)
 from k_zero_core.modes.rag_helpers import restore_existing_rag_index
+from k_zero_core.services.director_engine import DirectorEngine
 from k_zero_core.services.chat_session import ChatSession
 from k_zero_core.audio.io_handler import IOHandler
 from k_zero_core.storage.memory_manager import TodoStore
@@ -20,8 +15,7 @@ from k_zero_core.storage.session_manager import save_session
 
 class DirectorMode(BaseMode):
     def __init__(self) -> None:
-        self._router = DirectorRouter()
-        self._role_executor = DirectorRoleExecutor()
+        self._director_engine = DirectorEngine()
 
     def get_name(self) -> str:
         return "Director Multi-Agente"
@@ -79,30 +73,30 @@ class DirectorMode(BaseMode):
 
             print("Director clasificando requerimientos...", end="", flush=True)
 
-            roles = self._router.classify(chat_session.provider, chat_session.model, user_text)
-            print(f"\n[Roles asignados: {', '.join(roles) if roles else 'ninguno'}]")
-            
-            # 2. Ejecutar Sub-Agentes
-            selected_roles = [ROLE_DEFINITIONS[role] for role in roles]
-            if selected_roles:
-                labels = ", ".join(role.label for role in selected_roles)
-                print(f"  -> Ejecutando especialistas en paralelo: {labels}...", end="", flush=True)
-            role_executor = DirectorRoleExecutor(
-                max_workers=self._role_executor.max_workers,
+            director_engine = DirectorEngine(
+                max_workers=self._director_engine.max_workers,
                 todo_store=TodoStore(),
                 session_id=chat_session.session_id,
             )
-            sub_results: List[str] = role_executor.run_roles(
+            result = director_engine.collect(
                 chat_session.provider,
                 chat_session.model,
-                selected_roles,
                 user_text,
+                classify=True,
             )
-            if selected_roles:
+            roles = result.roles
+            print(f"\n[Roles asignados: {', '.join(roles) if roles else 'ninguno'}]")
+
+            if roles:
+                from k_zero_core.modes.director_helpers import ROLE_DEFINITIONS
+
+                labels = ", ".join(ROLE_DEFINITIONS[role].label for role in roles)
+                print(f"  -> Ejecutando especialistas en paralelo: {labels}...", end="", flush=True)
+            if roles:
                 print(" listo.")
                 
             # 3. Redactor (Síntesis)
-            contexto_extra = build_director_context(sub_results, roles=roles)
+            contexto_extra = result.context
             if "FUENTES REQUERIDAS:" in contexto_extra:
                 message = contexto_extra.strip()
                 print(f"\n[Director]: {message}\n")

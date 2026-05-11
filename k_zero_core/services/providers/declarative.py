@@ -12,6 +12,8 @@ from typing import Any, Dict, Generator, List, Optional
 
 from k_zero_core.core.config import PROVIDERS_FILE
 from k_zero_core.core.exceptions import OllamaConnectionError
+from k_zero_core.core.tool_executor import execute_tool_calls
+from k_zero_core.core.tools.registry import ToolSpec, build_tool_specs
 from k_zero_core.services.providers.base_provider import AIProvider
 
 
@@ -24,6 +26,7 @@ class DeclarativeProviderConfig:
     models: tuple[str, ...] = ()
     default_model: str = ""
     supports_streaming: bool = True
+    supports_tools: bool = False
 
     @property
     def chat_completions_url(self) -> str:
@@ -49,6 +52,7 @@ def _coerce_provider_config(raw: Dict[str, Any]) -> DeclarativeProviderConfig | 
         models=models,
         default_model=default_model,
         supports_streaming=bool(raw.get("supports_streaming", True)),
+        supports_tools=bool(raw.get("supports_tools", False)),
     )
 
 
@@ -92,9 +96,15 @@ def parse_sse_chat_chunks(chunks: Iterable[bytes]) -> Generator[str, None, None]
 class DeclarativeOpenAIProvider(AIProvider):
     """Provider OpenAI-compatible configurado por JSON."""
 
+    cost = "optional_paid"
+    privacy = "cloud"
+    is_local = False
+
     def __init__(self, config: DeclarativeProviderConfig):
         self.config = config
         self.key = config.key
+        self.supports_streaming = config.supports_streaming
+        self.supports_tools = config.supports_tools
 
     def get_display_name(self) -> str:
         return self.config.display_name
@@ -110,35 +120,111 @@ class DeclarativeOpenAIProvider(AIProvider):
                 headers["Authorization"] = f"Bearer {api_key}"
         return headers
 
-    def stream_chat(
-        self,
-        model: str,
-        messages: List[Dict[str, Any]],
-        tools: Optional[List] = None,
-    ) -> Generator[str, None, None]:
-        if tools:
-            raise OllamaConnectionError("Los providers declarativos v1 no soportan tool calling.")
-        payload = {
-            "model": model or self.config.default_model,
-            "messages": messages,
-            "stream": self.config.supports_streaming,
-        }
+    def _tool_specs(self, tools: List) -> list[ToolSpec]:
+        specs: list[ToolSpec] = []
+        callables = []
+        for tool in tools:
+            if isinstance(tool, ToolSpec):
+                specs.append(tool)
+            else:
+                callables.append(tool)
+        specs.extend(build_tool_specs(callables))
+        return specs
+
+    def _openai_tools(self, tools: List) -> list[dict[str, Any]]:
+        return [
+            {
+                "type": "function",
+                "function": {
+                    "name": spec.name,
+                    "description": spec.description,
+                    "parameters": spec.json_schema(),
+                },
+            }
+            for spec in self._tool_specs(tools)
+        ]
+
+    def _request_chat(self, payload: dict[str, Any]):
         request = urllib.request.Request(
             self.config.chat_completions_url,
             data=json.dumps(payload).encode("utf-8"),
             headers=self._headers(),
             method="POST",
         )
+        return urllib.request.urlopen(request, timeout=120)
+
+    def _stream_payload(self, payload: dict[str, Any]) -> Generator[str, None, None]:
+        with self._request_chat(payload) as response:
+            if payload.get("stream"):
+                yield from parse_sse_chat_chunks(response)
+                return
+            data = json.loads(response.read().decode("utf-8"))
+            for choice in data.get("choices", []):
+                content = choice.get("message", {}).get("content")
+                if content:
+                    yield str(content)
+
+    def _first_tool_response(self, payload: dict[str, Any]) -> dict[str, Any]:
+        first_payload = {**payload, "stream": False}
+        with self._request_chat(first_payload) as response:
+            data = json.loads(response.read().decode("utf-8"))
+        choices = data.get("choices", [])
+        if not choices:
+            return {"role": "assistant", "content": ""}
+        message = choices[0].get("message", {})
+        normalized_calls = []
+        for call in message.get("tool_calls", []) or []:
+            function = call.get("function", {})
+            raw_arguments = function.get("arguments", {})
+            if isinstance(raw_arguments, str):
+                try:
+                    arguments = json.loads(raw_arguments or "{}")
+                except json.JSONDecodeError:
+                    arguments = {}
+            else:
+                arguments = raw_arguments
+            normalized_calls.append(
+                {
+                    "id": call.get("id"),
+                    "type": call.get("type", "function"),
+                    "function": {
+                        "name": function.get("name", ""),
+                        "arguments": arguments,
+                    },
+                }
+            )
+        message["tool_calls"] = normalized_calls
+        return message
+
+    def stream_chat(
+        self,
+        model: str,
+        messages: List[Dict[str, Any]],
+        tools: Optional[List] = None,
+    ) -> Generator[str, None, None]:
+        payload = {
+            "model": model or self.config.default_model,
+            "messages": messages,
+            "stream": self.config.supports_streaming,
+        }
+        if tools:
+            if not self.supports_tools:
+                raise OllamaConnectionError(
+                    f"El provider declarativo '{self.key}' no soporta tool calling."
+                )
+            payload["tools"] = self._openai_tools(tools)
         try:
-            with urllib.request.urlopen(request, timeout=120) as response:
-                if self.config.supports_streaming:
-                    yield from parse_sse_chat_chunks(response)
+            if tools:
+                response_message = self._first_tool_response(payload)
+                if execute_tool_calls(response_message, messages, tools):
+                    followup_payload = {
+                        "model": model or self.config.default_model,
+                        "messages": messages,
+                        "stream": self.config.supports_streaming,
+                    }
+                    yield from self._stream_payload(followup_payload)
                     return
-                data = json.loads(response.read().decode("utf-8"))
-                for choice in data.get("choices", []):
-                    content = choice.get("message", {}).get("content")
-                    if content:
-                        yield str(content)
+            yield from self._stream_payload(payload)
         except urllib.error.URLError as e:
             raise OllamaConnectionError(f"Error conectando con provider '{self.key}': {e}") from e
 

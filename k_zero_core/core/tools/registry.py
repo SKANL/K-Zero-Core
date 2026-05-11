@@ -19,6 +19,30 @@ class ToolPermission(StrEnum):
     DENY = "deny"
 
 
+class ToolAudience(StrEnum):
+    """Audiencia primaria de una tool."""
+
+    USER = "user"
+    TECHNICAL = "technical"
+    INTERNAL = "internal"
+
+
+class ToolCost(StrEnum):
+    """Costo esperado para usar una tool."""
+
+    FREE = "free"
+    OPTIONAL_PAID = "optional_paid"
+    PAID = "paid"
+
+
+class ToolPrivacy(StrEnum):
+    """Nivel de exposición de datos de una tool."""
+
+    LOCAL = "local"
+    NETWORK = "network"
+    CLOUD = "cloud"
+
+
 @dataclass(frozen=True)
 class ToolSpec:
     """Describe una tool registrada en K-Zero."""
@@ -31,6 +55,11 @@ class ToolSpec:
     args_schema: Type[BaseModel] | None = None
     toolset: str = "general"
     max_inline_chars: int | None = None
+    audience: ToolAudience = ToolAudience.USER
+    cost: ToolCost = ToolCost.FREE
+    privacy: ToolPrivacy = ToolPrivacy.LOCAL
+    requires_network: bool = False
+    writes_files: bool = False
 
     @property
     def available(self) -> bool:
@@ -63,22 +92,52 @@ TOOL_METADATA: dict[str, dict[str, Any]] = {
     "listar_directorio": {"toolset": "filesystem_safe", "permission": ToolPermission.READ_ONLY},
     "analizar_valores_json": {"toolset": "analysis", "permission": ToolPermission.READ_ONLY},
     "calcular_matematica": {"toolset": "analysis", "permission": ToolPermission.READ_ONLY},
-    "buscar_en_internet": {"toolset": "research", "permission": ToolPermission.READ_ONLY},
+    "buscar_en_internet": {
+        "toolset": "research",
+        "permission": ToolPermission.READ_ONLY,
+        "privacy": ToolPrivacy.NETWORK,
+        "requires_network": True,
+    },
     "buscar_tavily": {
         "toolset": "research",
         "permission": ToolPermission.READ_ONLY,
         "requires_env": ("TAVILY_API_KEY",),
+        "cost": ToolCost.OPTIONAL_PAID,
+        "privacy": ToolPrivacy.NETWORK,
+        "requires_network": True,
     },
-    "leer_pagina_web": {"toolset": "research", "permission": ToolPermission.READ_ONLY},
-    "extraer_wikipedia": {"toolset": "research", "permission": ToolPermission.READ_ONLY},
+    "leer_pagina_web": {
+        "toolset": "research",
+        "permission": ToolPermission.READ_ONLY,
+        "privacy": ToolPrivacy.NETWORK,
+        "requires_network": True,
+    },
+    "extraer_wikipedia": {
+        "toolset": "research",
+        "permission": ToolPermission.READ_ONLY,
+        "privacy": ToolPrivacy.NETWORK,
+        "requires_network": True,
+    },
     "buscar_en_documentos_locales": {"toolset": "rag", "permission": ToolPermission.READ_ONLY},
     "informacion_sistema": {"toolset": "system", "permission": ToolPermission.READ_ONLY},
     "obtener_hora_actual": {"toolset": "system", "permission": ToolPermission.READ_ONLY},
     "memory": {"toolset": "memory", "permission": ToolPermission.READ_ONLY},
     "todo": {"toolset": "todo", "permission": ToolPermission.READ_ONLY},
-    "buscar_archivos_locales": {"toolset": "filesystem_safe", "permission": ToolPermission.READ_ONLY},
-    "inspeccionar_proyecto": {"toolset": "filesystem_safe", "permission": ToolPermission.READ_ONLY},
-    "leer_metadatos_archivo": {"toolset": "filesystem_safe", "permission": ToolPermission.READ_ONLY},
+    "buscar_archivos_locales": {
+        "toolset": "filesystem_safe",
+        "permission": ToolPermission.READ_ONLY,
+        "audience": ToolAudience.TECHNICAL,
+    },
+    "inspeccionar_proyecto": {
+        "toolset": "filesystem_safe",
+        "permission": ToolPermission.READ_ONLY,
+        "audience": ToolAudience.TECHNICAL,
+    },
+    "leer_metadatos_archivo": {
+        "toolset": "filesystem_safe",
+        "permission": ToolPermission.READ_ONLY,
+        "audience": ToolAudience.TECHNICAL,
+    },
     "leer_archivo_inteligente": {"toolset": "documents", "permission": ToolPermission.READ_ONLY},
     "analizar_docx": {"toolset": "documents", "permission": ToolPermission.READ_ONLY},
     "crear_docx": {"toolset": "documents", "permission": ToolPermission.WRITE_LOCAL},
@@ -108,16 +167,22 @@ def build_tool_specs(tools: list[Callable]) -> list[ToolSpec]:
     specs: list[ToolSpec] = []
     for tool in tools:
         metadata = TOOL_METADATA.get(tool.__name__, {})
+        permission = metadata.get("permission", ToolPermission.READ_ONLY)
         specs.append(
             ToolSpec(
                 name=tool.__name__,
                 func=tool,
                 description=(tool.__doc__ or "").strip().splitlines()[0] if tool.__doc__ else "",
                 requires_env=metadata.get("requires_env", ()),
-                permission=metadata.get("permission", ToolPermission.READ_ONLY),
+                permission=permission,
                 args_schema=metadata.get("args_schema"),
                 toolset=metadata.get("toolset", "general"),
                 max_inline_chars=metadata.get("max_inline_chars"),
+                audience=metadata.get("audience", ToolAudience.USER),
+                cost=metadata.get("cost", ToolCost.FREE),
+                privacy=metadata.get("privacy", ToolPrivacy.LOCAL),
+                requires_network=bool(metadata.get("requires_network", False)),
+                writes_files=bool(metadata.get("writes_files", permission == ToolPermission.WRITE_LOCAL)),
             )
         )
     return specs

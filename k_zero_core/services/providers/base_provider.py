@@ -16,6 +16,11 @@ class AIProvider(ABC):
     """Contrato que todo proveedor de IA debe cumplir."""
 
     key: str = ""  # Identificador único del proveedor — override en cada subclase
+    cost: str = "free"
+    privacy: str = "local"
+    supports_tools: bool = False
+    supports_streaming: bool = True
+    is_local: bool = False
 
     @abstractmethod
     def get_display_name(self) -> str:
