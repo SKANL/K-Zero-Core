@@ -62,7 +62,13 @@ from k_zero_core.core.tools.design_md import (
     previsualizar_estilo_entregable,
     validar_design_md,
 )
-from k_zero_core.core.tools.registry import ToolSpec, build_tool_specs
+from k_zero_core.core.tools.registry import (
+    ToolAudience,
+    ToolCost,
+    ToolPrivacy,
+    ToolSpec,
+    build_tool_specs,
+)
 
 # Registro de todas las tools disponibles
 # Para desactivar una tool, simplemente coméntala aquí
@@ -125,3 +131,35 @@ def get_tool_specs() -> List[ToolSpec]:
 def get_available_tool_specs() -> List[ToolSpec]:
     """Retorna metadata de tools con dependencias de entorno satisfechas."""
     return [spec for spec in get_tool_specs() if spec.available]
+
+
+def get_tools_by_capability(
+    *,
+    audience: ToolAudience | None = None,
+    cost: ToolCost | None = None,
+    privacy: ToolPrivacy | None = None,
+    requires_network: bool | None = None,
+    writes_files: bool | None = None,
+) -> List[ToolSpec]:
+    """Filtra ToolSpec por capacidades declarativas."""
+    specs = get_tool_specs()
+    if audience is not None:
+        specs = [spec for spec in specs if spec.audience == audience]
+    if cost is not None:
+        specs = [spec for spec in specs if spec.cost == cost]
+    if privacy is not None:
+        specs = [spec for spec in specs if spec.privacy == privacy]
+    if requires_network is not None:
+        specs = [spec for spec in specs if spec.requires_network == requires_network]
+    if writes_files is not None:
+        specs = [spec for spec in specs if spec.writes_files == writes_files]
+    return specs
+
+
+def describe_tool_capabilities(spec: ToolSpec) -> str:
+    """Devuelve una línea legible de costo, privacidad y permisos de una tool."""
+    return (
+        f"{spec.name}: audience={spec.audience.value}, cost={spec.cost.value}, "
+        f"privacy={spec.privacy.value}, requires_network={spec.requires_network}, "
+        f"writes_files={spec.writes_files}, permission={spec.permission.value}"
+    )

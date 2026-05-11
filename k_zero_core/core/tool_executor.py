@@ -123,6 +123,7 @@ def execute_tool_calls(
                 "role": "tool",
                 "content": prepare_tool_result(result, max_inline_chars=spec.max_inline_chars),
                 "name": function_name,
+                **({"tool_call_id": tool_call["id"]} if tool_call.get("id") else {}),
             }
         )
 

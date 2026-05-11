@@ -264,6 +264,34 @@ def choose_mode() -> str:
     return mode_entries[indice][0]
 
 
+def choose_main_experience() -> str:
+    """Primer menú: workflows guiados, modo avanzado o workflows técnicos."""
+    options = ["guided", "advanced", "technical"]
+    labels = [
+        "Tareas guiadas",
+        "Modo avanzado",
+        "Workflows técnicos",
+    ]
+    print("\n=== ¿Qué quieres hacer? ===")
+    for i, label in enumerate(labels):
+        print(f"{i + 1}. {label}")
+    indice = _select_from_list(f"\nElige una opción (1 - {len(options)}): ", options)
+    return options[indice]
+
+
+def choose_workflow():
+    """Permite elegir un workflow guiado del registro."""
+    from k_zero_core.workflows.registry import list_workflows
+
+    workflows = list_workflows()
+    print("\n=== Tareas Guiadas ===")
+    for i, workflow in enumerate(workflows):
+        print(f"{i + 1}. {workflow.name}")
+        print(f"     {workflow.description}")
+    indice = _select_from_list(f"\nElige una tarea (1 - {len(workflows)}): ", workflows)
+    return workflows[indice]
+
+
 def choose_io_mode() -> tuple[str, str]:
     """Prompt the user to select the I/O strategy. Returns (input_type, output_type)."""
     options = [

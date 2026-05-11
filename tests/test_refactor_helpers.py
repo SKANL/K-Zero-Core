@@ -184,5 +184,115 @@ class RagSetupTests(unittest.TestCase):
         self.assertEqual(io_handler.responses, ["Documento listo. ¿Qué quieres saber?"])
 
 
+class CLIWorkflowRoutingTests(unittest.TestCase):
+    def test_run_guided_workflow_does_not_use_mode_menu_for_builtin_selection(self):
+        from k_zero_core.cli.console import run_guided_workflow
+        from k_zero_core.workflows.registry import get_workflow
+
+        calls = []
+
+        class FakeWorkflowEngine:
+            output_func = staticmethod(lambda _message: None)
+
+            def summarize(self, workflow):
+                from k_zero_core.workflows.engine import WorkflowRunSummary
+
+                return WorkflowRunSummary("free", "local", False, False, workflow.name)
+
+            def run(self, workflow, **kwargs):
+                calls.append((workflow.key, kwargs))
+
+        run_guided_workflow(
+            get_workflow("transcribir_audio"),
+            workflow_engine=FakeWorkflowEngine(),
+            choose_mode_func=lambda: (_ for _ in ()).throw(AssertionError("choose_mode should not run")),
+            choose_provider_func=lambda: (_ for _ in ()).throw(AssertionError("provider should not be requested")),
+            manage_sessions_func=lambda: (_ for _ in ()).throw(AssertionError("sessions should not be requested")),
+            setup_chat_session_func=lambda *_args, **_kwargs: None,
+            setup_io_handler_func=lambda input_type, output_type, plugin: object(),
+        )
+
+        self.assertEqual(calls[0][0], "transcribir_audio")
+
+    def test_run_guided_workflow_surfaces_provider_capability_errors(self):
+        from k_zero_core.cli.console import run_guided_workflow
+        from k_zero_core.workflows.engine import WorkflowProviderError
+        from k_zero_core.workflows.registry import get_workflow
+
+        class FakeWorkflowEngine:
+            output_func = staticmethod(lambda _message: None)
+
+            def summarize(self, workflow):
+                from k_zero_core.workflows.engine import WorkflowRunSummary
+
+                return WorkflowRunSummary("free", "local", False, True, workflow.name)
+
+            def validate_provider(self, workflow, provider):
+                raise WorkflowProviderError("provider sin tools")
+
+            def run(self, workflow, **kwargs):
+                raise AssertionError("workflow should not run after validation failure")
+
+        class FakeProvider:
+            key = "cloud"
+
+            def get_display_name(self):
+                return "Cloud"
+
+            def get_available_models(self):
+                return ["model"]
+
+        class FakeSession:
+            session_id = "s1"
+            model = "model"
+            provider = FakeProvider()
+            messages = []
+            metadata = {}
+
+        with self.assertRaisesRegex(WorkflowProviderError, "provider sin tools"):
+            run_guided_workflow(
+                get_workflow("crear_entregable"),
+                workflow_engine=FakeWorkflowEngine(),
+                choose_provider_func=lambda: FakeProvider(),
+                manage_sessions_func=lambda: (_ for _ in ()).throw(AssertionError("sessions should not be requested")),
+                setup_chat_session_func=lambda *_args, **_kwargs: (_ for _ in ()).throw(
+                    AssertionError("chat session should not be created")
+                ),
+                setup_io_handler_func=lambda input_type, output_type, plugin: (_ for _ in ()).throw(
+                    AssertionError("io should not be initialized")
+                ),
+            )
+
+    def test_run_advanced_mode_preserves_mode_registry_flow(self):
+        from k_zero_core.cli.console import run_advanced_mode
+
+        calls = []
+
+        class FakeMode:
+            requires_llm = False
+            force_input_type = None
+
+            def get_name(self):
+                return "Fake"
+
+            def get_voice(self):
+                return "voice"
+
+            def run(self, chat, io_handler):
+                calls.append((chat, io_handler))
+
+        run_advanced_mode(
+            mode_registry={"fake": FakeMode},
+            choose_mode_func=lambda: "fake",
+            choose_provider_func=lambda: None,
+            choose_io_mode_func=lambda: ("text", "text"),
+            manage_sessions_func=lambda: None,
+            setup_chat_session_func=lambda *_args, **_kwargs: None,
+            setup_io_handler_func=lambda input_type, output_type, plugin: "io",
+        )
+
+        self.assertEqual(calls, [(None, "io")])
+
+
 if __name__ == "__main__":
     unittest.main()

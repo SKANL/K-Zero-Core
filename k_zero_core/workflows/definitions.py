@@ -1,0 +1,83 @@
+"""Catálogo built-in de workflows free-first."""
+from __future__ import annotations
+
+from k_zero_core.workflows.models import (
+    WorkflowAudience,
+    WorkflowCost,
+    WorkflowDefinition,
+    WorkflowInput,
+    WorkflowOutput,
+    WorkflowPrivacy,
+)
+
+
+BUILTIN_WORKFLOWS: tuple[WorkflowDefinition, ...] = (
+    WorkflowDefinition(
+        key="transcribir_audio",
+        name="Transcribir audio",
+        description="Guarda lo que dictas en Markdown sin usar IA.",
+        cost=WorkflowCost.FREE,
+        privacy=WorkflowPrivacy.LOCAL,
+        input_type=WorkflowInput.AUDIO,
+        output_type=WorkflowOutput.TEXT,
+        mode_key="transcription",
+        requires_llm=False,
+        writes_files=True,
+        write_description="guarda transcripciones en DATA_DIR/transcripciones",
+    ),
+    WorkflowDefinition(
+        key="organizar_ideas",
+        name="Organizar mis ideas",
+        description="Convierte un volcado de voz o texto en notas y tareas.",
+        cost=WorkflowCost.FREE,
+        privacy=WorkflowPrivacy.LOCAL,
+        input_type=WorkflowInput.TEXT,
+        output_type=WorkflowOutput.TEXT,
+        mode_key="brain_dump",
+        writes_files=True,
+        write_description="guarda notas Markdown en DATA_DIR",
+    ),
+    WorkflowDefinition(
+        key="preguntar_documento",
+        name="Preguntar sobre un documento",
+        description="Indexa un PDF/TXT local y responde con RAG local.",
+        cost=WorkflowCost.FREE,
+        privacy=WorkflowPrivacy.LOCAL,
+        input_type=WorkflowInput.TEXT,
+        output_type=WorkflowOutput.TEXT,
+        mode_key="rag",
+        writes_files=True,
+        write_description="guarda un índice local en DATA_DIR/vector_store",
+    ),
+    WorkflowDefinition(
+        key="crear_entregable",
+        name="Crear entregable",
+        description="Crea documentos nativos en exports con lectura, producción y verificación.",
+        cost=WorkflowCost.FREE,
+        privacy=WorkflowPrivacy.LOCAL,
+        roles=("documentalista", "productor", "verificador"),
+        toolsets=("documents", "design", "validation"),
+        system_prompt="Crea un entregable claro, verificable y guarda rutas exactas si se generan archivos.",
+    ),
+    WorkflowDefinition(
+        key="investigar_fuentes",
+        name="Investigar con fuentes",
+        description="Investiga en web y responde con trazabilidad de fuentes.",
+        cost=WorkflowCost.FREE,
+        privacy=WorkflowPrivacy.NETWORK,
+        roles=("investigador", "fuentes", "verificador"),
+        toolsets=("research", "validation"),
+        system_prompt="Investiga con fuentes citables y entrega una síntesis verificable.",
+    ),
+    WorkflowDefinition(
+        key="analizar_proyecto",
+        name="Analizar carpeta o proyecto",
+        description="Inspecciona archivos locales y revisa estructura, riesgos y hallazgos.",
+        audience=WorkflowAudience.TECHNICAL,
+        cost=WorkflowCost.FREE,
+        privacy=WorkflowPrivacy.LOCAL,
+        roles=("tecnico", "seguridad", "verificador"),
+        toolsets=("filesystem_safe", "system", "validation"),
+        system_prompt="Analiza el proyecto local con foco en estructura, riesgos y acciones útiles.",
+    ),
+)

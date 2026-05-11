@@ -27,6 +27,11 @@ class OllamaProvider(AIProvider):
     """Proveedor de IA usando Ollama ejecutándose en local."""
 
     key = "ollama"
+    cost = "free"
+    privacy = "local"
+    supports_tools = True
+    supports_streaming = True
+    is_local = True
 
     def get_display_name(self) -> str:
         return "Ollama (Local)"

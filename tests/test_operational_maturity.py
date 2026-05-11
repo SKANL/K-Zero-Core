@@ -43,6 +43,29 @@ class ToolRegistryTests(unittest.TestCase):
 
         self.assertEqual(specs["analizar_pdf"].permission, ToolPermission.READ_ONLY)
 
+    def test_tool_specs_expose_cost_privacy_and_audience_capabilities(self):
+        from k_zero_core.core.tools import describe_tool_capabilities, get_tools_by_capability
+        from k_zero_core.core.tools.registry import ToolAudience, ToolCost, ToolPrivacy
+        from k_zero_core.core.tools.toolsets import resolve_toolset_specs
+
+        document_specs = {spec.name: spec for spec in resolve_toolset_specs("documents")}
+        web_specs = {spec.name: spec for spec in resolve_toolset_specs("research")}
+        filesystem_specs = {spec.name: spec for spec in resolve_toolset_specs("filesystem_safe")}
+
+        self.assertTrue(document_specs["crear_docx"].writes_files)
+        self.assertEqual(document_specs["crear_docx"].privacy, ToolPrivacy.LOCAL)
+        self.assertFalse(filesystem_specs["leer_archivo"].requires_network)
+        self.assertEqual(filesystem_specs["leer_archivo"].cost, ToolCost.FREE)
+        self.assertTrue(web_specs["buscar_en_internet"].requires_network)
+        self.assertEqual(web_specs["buscar_en_internet"].privacy, ToolPrivacy.NETWORK)
+        self.assertEqual(web_specs["buscar_tavily"].cost, ToolCost.OPTIONAL_PAID)
+
+        technical_tools = get_tools_by_capability(audience=ToolAudience.TECHNICAL)
+        self.assertTrue(any(spec.name == "inspeccionar_proyecto" for spec in technical_tools))
+        summary = describe_tool_capabilities(document_specs["crear_docx"])
+        self.assertIn("writes_files=True", summary)
+        self.assertIn("privacy=local", summary)
+
 
 class ToolOutputTests(unittest.TestCase):
     def test_short_tool_output_stays_inline(self):
@@ -231,6 +254,105 @@ class DeclarativeProviderTests(unittest.TestCase):
         ]
 
         self.assertEqual(list(parse_sse_chat_chunks(payload)), ["hola", " mundo"])
+
+
+class ProviderCapabilityTests(unittest.TestCase):
+    def test_ollama_provider_declares_local_free_tool_support(self):
+        from k_zero_core.services.providers.ollama_provider import OllamaProvider
+
+        provider = OllamaProvider()
+
+        self.assertTrue(provider.is_local)
+        self.assertTrue(provider.supports_tools)
+        self.assertEqual(provider.cost, "free")
+        self.assertEqual(provider.privacy, "local")
+
+    def test_declarative_provider_without_tools_fails_clearly_for_agentic_tools(self):
+        from k_zero_core.core.exceptions import OllamaConnectionError
+        from k_zero_core.services.providers.declarative import DeclarativeOpenAIProvider, DeclarativeProviderConfig
+
+        provider = DeclarativeOpenAIProvider(
+            DeclarativeProviderConfig(
+                key="cloud",
+                display_name="Cloud",
+                base_url="https://api.example.test/v1",
+                models=("model",),
+            )
+        )
+
+        with self.assertRaisesRegex(OllamaConnectionError, "no soporta tool calling"):
+            list(provider.stream_chat("model", [{"role": "user", "content": "hola"}], tools=[lambda: "ok"]))
+
+    def test_declarative_provider_with_tools_executes_openai_compatible_tool_call(self):
+        from k_zero_core.services.providers import declarative
+        from k_zero_core.services.providers.declarative import DeclarativeOpenAIProvider, DeclarativeProviderConfig
+
+        calls = []
+
+        def sumar(a: int, b: int) -> str:
+            calls.append((a, b))
+            return str(a + b)
+
+        class FakeResponse:
+            def __init__(self, payload=None, chunks=None):
+                self.payload = payload
+                self.chunks = chunks or []
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self):
+                return json.dumps(self.payload).encode("utf-8")
+
+            def __iter__(self):
+                return iter(self.chunks)
+
+        responses = iter(
+            [
+                FakeResponse(
+                    {
+                        "choices": [
+                            {
+                                "message": {
+                                    "role": "assistant",
+                                    "content": "",
+                                    "tool_calls": [
+                                        {
+                                            "id": "call-1",
+                                            "type": "function",
+                                            "function": {
+                                                "name": "sumar",
+                                                "arguments": "{\"a\": 2, \"b\": 3}",
+                                            },
+                                        }
+                                    ],
+                                }
+                            }
+                        ]
+                    }
+                ),
+                FakeResponse(chunks=[b'data: {"choices":[{"delta":{"content":"resultado 5"}}]}\n\n']),
+            ]
+        )
+
+        provider = DeclarativeOpenAIProvider(
+            DeclarativeProviderConfig(
+                key="cloud",
+                display_name="Cloud",
+                base_url="https://api.example.test/v1",
+                models=("model",),
+                supports_tools=True,
+            )
+        )
+
+        with patch.object(declarative.urllib.request, "urlopen", side_effect=lambda *_args, **_kwargs: next(responses)):
+            result = "".join(provider.stream_chat("model", [{"role": "user", "content": "suma"}], tools=[sumar]))
+
+        self.assertEqual(calls, [(2, 3)])
+        self.assertEqual(result, "resultado 5")
 
 
 class DoctorTests(unittest.TestCase):
@@ -507,6 +629,205 @@ class DirectorDeclarativeTests(unittest.TestCase):
         self.assertIn("documentalista", ROLE_DEFINITIONS)
         self.assertIn("verificador", ROLE_DEFINITIONS)
         self.assertEqual(parse_roles("investigador, técnico, analista"), ["investigador", "analista", "tecnico"])
+
+
+class DirectorEngineTests(unittest.TestCase):
+    def test_director_engine_runs_explicit_roles_without_classifier(self):
+        from k_zero_core.modes.director_helpers import RoleDefinition
+        from k_zero_core.services.director_engine import DirectorEngine
+
+        class FakeProvider:
+            def __init__(self):
+                self.calls = []
+
+            def stream_chat(self, _model, messages, tools=None):
+                self.calls.append((messages, tools))
+                return iter(["dato"])
+
+        provider = FakeProvider()
+        role = RoleDefinition("analista", "Analista", "DATOS DEL ANALISTA", "analiza", [])
+        result = DirectorEngine(max_workers=1).collect(
+            provider,
+            "model",
+            "consulta",
+            roles=[role],
+            classify=False,
+        )
+
+        self.assertEqual(result.roles, ["analista"])
+        self.assertIn("DATOS DEL ANALISTA:\ndato", result.context)
+        self.assertEqual(len(provider.calls), 1)
+
+
+class WorkflowCoreTests(unittest.TestCase):
+    def test_builtin_workflows_load_with_free_first_metadata(self):
+        from k_zero_core.workflows.registry import get_workflow, list_workflows
+        from k_zero_core.workflows.models import WorkflowCost, WorkflowPrivacy
+
+        workflows = {workflow.key: workflow for workflow in list_workflows()}
+
+        self.assertIn("transcribir_audio", workflows)
+        self.assertIn("crear_entregable", workflows)
+        self.assertEqual(get_workflow("transcribir_audio").cost, WorkflowCost.FREE)
+        self.assertEqual(get_workflow("transcribir_audio").privacy, WorkflowPrivacy.LOCAL)
+        self.assertTrue(get_workflow("transcribir_audio").writes_files)
+        self.assertEqual(get_workflow("crear_entregable").roles, ("documentalista", "productor", "verificador"))
+
+    def test_workflow_engine_summarizes_cost_privacy_and_tool_requirements(self):
+        from k_zero_core.workflows.engine import WorkflowEngine
+        from k_zero_core.workflows.registry import get_workflow
+
+        summary = WorkflowEngine().summarize(get_workflow("crear_entregable"))
+
+        self.assertTrue(summary.writes_files)
+        self.assertIn("exports", summary.message)
+        self.assertIn("gratis", summary.message.lower())
+
+        transcription_summary = WorkflowEngine().summarize(get_workflow("transcribir_audio"))
+        self.assertTrue(transcription_summary.writes_files)
+        self.assertIn("transcripciones", transcription_summary.message)
+
+        rag_summary = WorkflowEngine().summarize(get_workflow("preguntar_documento"))
+        self.assertTrue(rag_summary.writes_files)
+        self.assertIn("vector_store", rag_summary.message)
+
+    def test_workflow_engine_requires_confirmation_before_write_workflow(self):
+        from k_zero_core.workflows.engine import WorkflowEngine
+        from k_zero_core.workflows.registry import get_workflow
+
+        outputs = []
+        prompts = []
+
+        class FakeDirector:
+            def __init__(self, **_kwargs):
+                raise AssertionError("director should not run without confirmation")
+
+        class FakeProvider:
+            supports_tools = True
+
+            def get_display_name(self):
+                return "Fake"
+
+        class FakeSession:
+            session_id = "s1"
+            model = "model"
+            provider = FakeProvider()
+
+        engine = WorkflowEngine(
+            input_func=lambda prompt: prompts.append(prompt) or "no",
+            output_func=outputs.append,
+            director_engine_cls=FakeDirector,
+        )
+
+        engine.run(get_workflow("crear_entregable"), chat_session=FakeSession(), provider=FakeProvider())
+
+        self.assertTrue(any("confirm" in prompt.lower() for prompt in prompts))
+        self.assertTrue(any("cancel" in output.lower() for output in outputs))
+
+    def test_workflow_engine_allows_non_agentic_workflow_with_provider_without_tools(self):
+        from k_zero_core.services.providers.declarative import DeclarativeOpenAIProvider, DeclarativeProviderConfig
+        from k_zero_core.workflows.engine import WorkflowEngine
+        from k_zero_core.workflows.registry import get_workflow
+
+        provider = DeclarativeOpenAIProvider(
+            DeclarativeProviderConfig(
+                key="cloud",
+                display_name="Cloud",
+                base_url="https://api.example.test/v1",
+                models=("model",),
+            )
+        )
+
+        WorkflowEngine().validate_provider(get_workflow("organizar_ideas"), provider)
+
+    def test_workflow_engine_rejects_tool_workflow_with_provider_without_tools(self):
+        from k_zero_core.services.providers.declarative import DeclarativeOpenAIProvider, DeclarativeProviderConfig
+        from k_zero_core.workflows.engine import WorkflowEngine, WorkflowProviderError
+        from k_zero_core.workflows.registry import get_workflow
+
+        provider = DeclarativeOpenAIProvider(
+            DeclarativeProviderConfig(
+                key="cloud",
+                display_name="Cloud",
+                base_url="https://api.example.test/v1",
+                models=("model",),
+            )
+        )
+
+        with self.assertRaisesRegex(WorkflowProviderError, "no soporta tools"):
+            WorkflowEngine().validate_provider(get_workflow("crear_entregable"), provider)
+
+
+class WorkflowStoreTests(unittest.TestCase):
+    def test_workflow_store_creates_valid_template_and_roundtrips(self):
+        from k_zero_core.storage.workflow_manager import WorkflowStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = WorkflowStore(Path(tmpdir))
+            workflow = store.create_from_template("mi_entregable", "crear_entregable")
+            loaded = store.load("mi_entregable")
+
+        self.assertEqual(workflow.key, "mi_entregable")
+        self.assertEqual(loaded.roles, ("documentalista", "productor", "verificador"))
+
+    def test_workflow_store_rejects_invalid_import_path(self):
+        from k_zero_core.storage.workflow_manager import WorkflowStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = WorkflowStore(Path(tmpdir))
+            outside = Path(tmpdir).parent / "outside.json"
+            outside.write_text("{}", encoding="utf-8")
+
+            with self.assertRaises(ValueError):
+                store.import_workflow(outside)
+
+    def test_workflow_store_rejects_unknown_roles_toolsets_and_modes(self):
+        from k_zero_core.storage.workflow_manager import WorkflowStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = WorkflowStore(Path(tmpdir))
+
+            with self.assertRaisesRegex(ValueError, "toolset"):
+                store.save_raw(
+                    {
+                        "key": "bad_toolset",
+                        "name": "Bad",
+                        "description": "bad",
+                        "toolsets": ["missing"],
+                    }
+                )
+
+            with self.assertRaisesRegex(ValueError, "rol"):
+                store.save_raw(
+                    {
+                        "key": "bad_role",
+                        "name": "Bad",
+                        "description": "bad",
+                        "roles": ["missing"],
+                    }
+                )
+
+            with self.assertRaisesRegex(ValueError, "modo"):
+                store.save_raw(
+                    {
+                        "key": "bad_mode",
+                        "name": "Bad",
+                        "description": "bad",
+                        "mode_key": "missing",
+                    }
+                )
+
+    def test_workflow_store_rejects_malformed_json_with_readable_errors(self):
+        from k_zero_core.storage.workflow_manager import WorkflowStore
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = WorkflowStore(Path(tmpdir))
+
+            with self.assertRaisesRegex(ValueError, "key"):
+                store.save_raw({"name": "Sin clave"})
+
+            with self.assertRaisesRegex(ValueError, "privacy"):
+                store.save_raw({"key": "bad_privacy", "privacy": "publica"})
 
 
 class VectorStoreLoggingTests(unittest.TestCase):

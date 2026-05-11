@@ -20,8 +20,10 @@ SHARED_INSTRUCTIONS_FILE = DATA_DIR / "shared_instructions.md"
 SESSIONS_DIR = DATA_DIR / "sessions"
 VECTOR_STORE_DIR = DATA_DIR / "vector_store"
 PLUGINS_DIR = DATA_DIR / "plugins"
+WORKFLOWS_DIR = DATA_DIR / "workflows"
 
 # Crear directorios en el primer uso
 SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
 VECTOR_STORE_DIR.mkdir(parents=True, exist_ok=True)
 PLUGINS_DIR.mkdir(parents=True, exist_ok=True)
+WORKFLOWS_DIR.mkdir(parents=True, exist_ok=True)
