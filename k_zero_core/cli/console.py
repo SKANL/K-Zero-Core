@@ -91,7 +91,6 @@ def run_guided_workflow(
 def run() -> None:
     """Main entry point for the CLI."""
 
-    # 0. Cargar plugins dinámicos primero
     load_external_plugins()
 
     print("Bienvenido a Ollama CLI")

@@ -90,7 +90,6 @@ class DirectorMode(BaseMode):
                 print(f"  -> Ejecutando especialistas en paralelo: {labels}...", end="", flush=True)
                 print(" listo.")
                 
-            # 3. Redactor (Síntesis)
             contexto_extra = result.context
             if "FUENTES REQUERIDAS:" in contexto_extra:
                 message = contexto_extra.strip()
