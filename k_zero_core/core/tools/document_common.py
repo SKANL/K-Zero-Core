@@ -9,8 +9,8 @@ from typing import Any
 from k_zero_core.core.config import DATA_DIR
 from k_zero_core.core.tool_safety import resolve_safe_path
 from k_zero_core.services.design_md import (
-    aplicar_diseno_entregable,
     clean_inline_text,
+    extract_urls,
     parse_markdown_blocks,
 )
 
@@ -84,7 +84,7 @@ def _rows_from_json_or_markdown(datos: str) -> tuple[list[str], list[list[Any]],
         return [f"Columna {index}" for index in range(1, width + 1)], normalized, sources
     except Exception:
         blocks = parse_markdown_blocks(datos)
-        sources = aplicar_diseno_entregable(datos, "xlsx")["sources"]
+        sources = extract_urls(datos)
         for block in blocks:
             if block["type"] == "table":
                 return block["headers"], block["rows"], sources

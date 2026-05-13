@@ -1,4 +1,5 @@
-from typing import List, Dict, Any, Optional, Generator
+from collections.abc import Generator
+from typing import Any
 
 import ollama
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
@@ -35,7 +36,7 @@ class OllamaProvider(AIProvider):
     from functools import lru_cache
 
     @lru_cache(maxsize=1)
-    def get_available_models(self) -> List[str]:
+    def get_available_models(self) -> list[str]:
         """Retorna los modelos instalados localmente en Ollama."""
         try:
             response = _retryable_ollama_call(ollama.list)
@@ -48,8 +49,8 @@ class OllamaProvider(AIProvider):
     def stream_chat(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
-        tools: Optional[List] = None,
+        messages: list[dict[str, Any]],
+        tools: list | None = None,
     ) -> Generator[str, None, None]:
         """
         Envía mensajes a Ollama y hace yield de los chunks de la respuesta.

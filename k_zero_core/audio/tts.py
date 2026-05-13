@@ -9,7 +9,6 @@ Provee:
 import asyncio
 import logging
 from tempfile import NamedTemporaryFile
-from typing import Optional
 
 import edge_tts
 import pygame
@@ -27,7 +26,7 @@ class TextToSpeech:
     El mixer de pygame se inicializa una sola vez en el constructor.
     """
 
-    def __init__(self, config: Optional[TtsConfig] = None):
+    def __init__(self, config: TtsConfig | None = None):
         """
         Inicializa el motor TTS y el mixer de pygame.
 
@@ -96,7 +95,7 @@ class TextToSpeech:
             except OSError as e:
                 logger.warning("No se pudo eliminar el archivo temporal de TTS '%s': %s", temp_path, e)
 
-    def speak(self, text: str, voice: Optional[str] = None) -> None:
+    def speak(self, text: str, voice: str | None = None) -> None:
         """
         Sintetiza y reproduce el texto de forma síncrona.
 

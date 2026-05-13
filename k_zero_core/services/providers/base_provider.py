@@ -9,7 +9,8 @@ Para agregar un nuevo proveedor:
 No necesitas modificar ningún otro archivo del proyecto.
 """
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional, Generator
+from collections.abc import Generator
+from typing import Any
 
 
 class AIProvider(ABC):
@@ -27,7 +28,7 @@ class AIProvider(ABC):
         """Nombre visible en los menús (ej. 'Ollama (Local)')."""
 
     @abstractmethod
-    def get_available_models(self) -> List[str]:
+    def get_available_models(self) -> list[str]:
         """
         Retorna la lista de modelos disponibles en este proveedor.
 
@@ -39,8 +40,8 @@ class AIProvider(ABC):
     def stream_chat(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
-        tools: Optional[List] = None,
+        messages: list[dict[str, Any]],
+        tools: list | None = None,
     ) -> Generator[str, None, None]:
         """
         Envía mensajes al proveedor y hace yield de los chunks de texto.

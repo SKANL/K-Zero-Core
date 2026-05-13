@@ -7,7 +7,6 @@ Flujo de uso:
     engine.ingest(text, collection_id)    # primera vez
     chunks = engine.search(query, collection_id)  # por cada pregunta
 """
-from typing import List
 import logging
 
 from k_zero_core.services.embeddings import EmbeddingClient, OllamaEmbeddingClient
@@ -79,19 +78,20 @@ class RagEngine:
         prefixed = [f"{self.DOC_PREFIX}{chunk}" for chunk in chunks]
 
         logger.info("Generando embeddings con '%s'...", self.embedding_model)
-        embeddings: List[List[float]] = []
-        # Dividir en lotes para no sobrecargar al backend de embeddings.
-        for i in range(0, len(prefixed), self.EMBEDDING_BATCH_SIZE):
-            batch = prefixed[i:i + self.EMBEDDING_BATCH_SIZE]
-            embeddings.extend(
-                self._embedding_client.embed_documents(self.embedding_model, batch)
+        embeddings = [
+            embedding
+            for i in range(0, len(prefixed), self.EMBEDDING_BATCH_SIZE)
+            for embedding in self._embedding_client.embed_documents(
+                self.embedding_model,
+                prefixed[i:i + self.EMBEDDING_BATCH_SIZE],
             )
+        ]
 
         logger.info("Guardando en base de datos vectorial...")
         self._store.store(collection_id, chunks, embeddings)
         return total
 
-    def search(self, query: str, collection_id: str, top_k: int = 3) -> List[str]:
+    def search(self, query: str, collection_id: str, top_k: int = 3) -> list[str]:
         """
         Encuentra los chunks más relevantes para la consulta usando similitud coseno.
 
@@ -113,7 +113,7 @@ class RagEngine:
 
         return self._store.search(collection_id, query_embedding, top_k)
 
-    def _chunk_text(self, text: str) -> List[str]:
+    def _chunk_text(self, text: str) -> list[str]:
         """
         Divide el texto en bloques de aproximadamente CHUNK_SIZE palabras con CHUNK_OVERLAP de solapamiento.
         Respeta límites de oraciones (puntuación) para no romper el sentido semántico.

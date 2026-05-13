@@ -5,10 +5,10 @@ import json
 import os
 import urllib.error
 import urllib.request
-from collections.abc import Iterable
+from collections.abc import Generator, Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Generator, List, Optional
+from typing import Any
 
 from k_zero_core.core.config import PROVIDERS_FILE
 from k_zero_core.core.exceptions import OllamaConnectionError
@@ -36,7 +36,7 @@ class DeclarativeProviderConfig:
         return f"{base}/chat/completions"
 
 
-def _coerce_provider_config(raw: Dict[str, Any]) -> DeclarativeProviderConfig | None:
+def _coerce_provider_config(raw: dict[str, Any]) -> DeclarativeProviderConfig | None:
     key = str(raw.get("key", "")).strip()
     display_name = str(raw.get("display_name", key)).strip()
     base_url = str(raw.get("base_url", "")).strip()
@@ -108,7 +108,7 @@ class DeclarativeOpenAIProvider(AIProvider):
     def get_display_name(self) -> str:
         return self.config.display_name
 
-    def get_available_models(self) -> List[str]:
+    def get_available_models(self) -> list[str]:
         return list(self.config.models or ((self.config.default_model,) if self.config.default_model else ()))
 
     def _headers(self) -> dict[str, str]:
@@ -119,12 +119,12 @@ class DeclarativeOpenAIProvider(AIProvider):
                 headers["Authorization"] = f"Bearer {api_key}"
         return headers
 
-    def _tool_specs(self, tools: List) -> list[ToolSpec]:
+    def _tool_specs(self, tools: list) -> list[ToolSpec]:
         specs = [tool for tool in tools if isinstance(tool, ToolSpec)]
         callables = [tool for tool in tools if not isinstance(tool, ToolSpec)]
         return [*specs, *build_tool_specs(callables)]
 
-    def _openai_tools(self, tools: List) -> list[dict[str, Any]]:
+    def _openai_tools(self, tools: list) -> list[dict[str, Any]]:
         return [
             {
                 "type": "function",
@@ -192,8 +192,8 @@ class DeclarativeOpenAIProvider(AIProvider):
     def stream_chat(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
-        tools: Optional[List] = None,
+        messages: list[dict[str, Any]],
+        tools: list | None = None,
     ) -> Generator[str, None, None]:
         payload = {
             "model": model or self.config.default_model,

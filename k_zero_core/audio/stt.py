@@ -11,7 +11,6 @@ import io
 import logging
 import os
 import sys
-from typing import Optional
 
 # pyaudiowpatch debe importarse antes que SpeechRecognition en Windows para que
 # el alias 'pyaudio' apunte a la versión con soporte WASAPI loopback.
@@ -110,7 +109,7 @@ class SpeechTranscriber:
         - transcribe_file      : Transcribe un archivo de audio local o un objeto BytesIO.
     """
 
-    def __init__(self, config: Optional[WhisperConfig] = None):
+    def __init__(self, config: WhisperConfig | None = None):
         """
         Inicializa el modelo Whisper y el reconocedor de SpeechRecognition.
 
@@ -142,7 +141,7 @@ class SpeechTranscriber:
         self._ambient_adjusted = False
 
     @staticmethod
-    def _resolve_device(device: Optional[str]) -> tuple[str, str]:
+    def _resolve_device(device: str | None) -> tuple[str, str]:
         """
         Determina el dispositivo de inferencia y el tipo de cuantización óptimos.
 
@@ -241,7 +240,7 @@ class SpeechTranscriber:
 
     def listen_walkie_talkie(
         self,
-        device_index: Optional[int] = None,
+        device_index: int | None = None,
         is_loopback: bool = False,
     ) -> str:
         """
@@ -281,7 +280,7 @@ class SpeechTranscriber:
 
     def listen_streaming(
         self,
-        device_index: Optional[int] = None,
+        device_index: int | None = None,
         is_loopback: bool = False,
     ) -> str:
         """
