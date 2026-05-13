@@ -8,7 +8,6 @@ Provee:
 
 import asyncio
 import logging
-import os
 from tempfile import NamedTemporaryFile
 from typing import Optional
 

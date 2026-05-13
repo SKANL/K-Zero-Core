@@ -20,7 +20,7 @@ Registro central de herramientas (tools) disponibles para los modos de agente.
             Descripción de lo que retorna.
         \"\"\"
 """
-from typing import List, Callable
+from collections.abc import Callable
 
 from k_zero_core.core.tools.date_time import obtener_hora_actual
 from k_zero_core.core.tools.matematica import calcular_matematica
@@ -72,7 +72,7 @@ from k_zero_core.core.tools.registry import (
 
 # Registro de todas las tools disponibles
 # Para desactivar una tool, simplemente coméntala aquí
-_ALL_TOOLS: List[Callable] = [
+_ALL_TOOLS: list[Callable] = [
     obtener_hora_actual,
     calcular_matematica,
     leer_archivo,
@@ -113,7 +113,7 @@ _ALL_TOOLS: List[Callable] = [
 ]
 
 
-def get_all_tools() -> List[Callable]:
+def get_all_tools() -> list[Callable]:
     """
     Retorna la lista de todas las herramientas disponibles para el Agente.
 
@@ -123,12 +123,12 @@ def get_all_tools() -> List[Callable]:
     return list(_ALL_TOOLS)
 
 
-def get_tool_specs() -> List[ToolSpec]:
+def get_tool_specs() -> list[ToolSpec]:
     """Retorna metadata de tools en el mismo orden de get_all_tools()."""
     return build_tool_specs(get_all_tools())
 
 
-def get_available_tool_specs() -> List[ToolSpec]:
+def get_available_tool_specs() -> list[ToolSpec]:
     """Retorna metadata de tools con dependencias de entorno satisfechas."""
     return [spec for spec in get_tool_specs() if spec.available]
 
@@ -140,7 +140,7 @@ def get_tools_by_capability(
     privacy: ToolPrivacy | None = None,
     requires_network: bool | None = None,
     writes_files: bool | None = None,
-) -> List[ToolSpec]:
+) -> list[ToolSpec]:
     """Filtra ToolSpec por capacidades declarativas."""
     specs = get_tool_specs()
     if audience is not None:

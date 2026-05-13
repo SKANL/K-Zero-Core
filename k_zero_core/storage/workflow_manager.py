@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import shutil
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -72,24 +73,10 @@ class WorkflowStore:
         from k_zero_core.workflows.registry import get_workflow
 
         template = get_workflow(template_key)
-        workflow = WorkflowDefinition(
+        workflow = replace(
+            template,
             key=_safe_key(key),
             name=key.replace("_", " ").strip().title() or template.name,
-            description=template.description,
-            audience=template.audience,
-            cost=template.cost,
-            privacy=template.privacy,
-            input_type=template.input_type,
-            output_type=template.output_type,
-            mode_key=template.mode_key,
-            default_provider=template.default_provider,
-            toolsets=template.toolsets,
-            roles=template.roles,
-            system_prompt=template.system_prompt,
-            requires_llm=template.requires_llm,
-            requires_confirmation_for_writes=template.requires_confirmation_for_writes,
-            writes_files=template.writes_files,
-            write_description=template.write_description,
         )
         return self.save(workflow)
 

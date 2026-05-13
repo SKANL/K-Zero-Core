@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from pathlib import Path
 
 from k_zero_core.core.config import DATA_DIR
 from k_zero_core.services.design_md import (

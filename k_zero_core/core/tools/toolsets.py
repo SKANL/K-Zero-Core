@@ -62,52 +62,40 @@ TOOLSETS: dict[str, tuple[str, ...]] = {
 }
 
 
-def resolve_toolset(name: str, visited: set[str] | None = None) -> list[Callable]:
-    """Resuelve un toolset a callables, preservando orden y evitando ciclos."""
+def _resolve_toolset_items(name: str, by_name: dict[str, object], visited: set[str] | None = None) -> list[object]:
     if visited is None:
         visited = set()
     if name in visited:
         return []
     visited.add(name)
 
-    resolved: list[Callable] = []
-    by_name = {spec.name: spec.func for spec in get_tool_specs()}
+    resolved: list[object] = []
     for item in TOOLSETS.get(name, ()):
         if item in TOOLSETS:
-            resolved.extend(resolve_toolset(item, visited))
+            resolved.extend(_resolve_toolset_items(item, by_name, visited))
         elif item in by_name:
             resolved.append(by_name[item])
+    return resolved
 
-    deduped: list[Callable] = []
+
+def _dedupe_by_name(items: list[object]) -> list[object]:
+    deduped: list[object] = []
     seen: set[str] = set()
-    for tool in resolved:
-        tool_name = getattr(tool, "__name__", "")
-        if tool_name and tool_name not in seen:
-            seen.add(tool_name)
-            deduped.append(tool)
+    for item in items:
+        item_name = getattr(item, "name", None) or getattr(item, "__name__", "")
+        if item_name and item_name not in seen:
+            seen.add(item_name)
+            deduped.append(item)
     return deduped
+
+
+def resolve_toolset(name: str, visited: set[str] | None = None) -> list[Callable]:
+    """Resuelve un toolset a callables, preservando orden y evitando ciclos."""
+    by_name = {spec.name: spec.func for spec in get_tool_specs()}
+    return _dedupe_by_name(_resolve_toolset_items(name, by_name, visited))
 
 
 def resolve_toolset_specs(name: str, visited: set[str] | None = None) -> list[ToolSpec]:
     """Resuelve un toolset a ToolSpec, preservando orden y evitando ciclos."""
-    if visited is None:
-        visited = set()
-    if name in visited:
-        return []
-    visited.add(name)
-
-    resolved: list[ToolSpec] = []
     by_name = {spec.name: spec for spec in get_tool_specs()}
-    for item in TOOLSETS.get(name, ()):
-        if item in TOOLSETS:
-            resolved.extend(resolve_toolset_specs(item, visited))
-        elif item in by_name:
-            resolved.append(by_name[item])
-
-    deduped: list[ToolSpec] = []
-    seen: set[str] = set()
-    for spec in resolved:
-        if spec.name not in seen:
-            seen.add(spec.name)
-            deduped.append(spec)
-    return deduped
+    return _dedupe_by_name(_resolve_toolset_items(name, by_name, visited))

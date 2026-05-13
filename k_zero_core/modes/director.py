@@ -1,8 +1,4 @@
-"""
-Modo Director Multi-Agente.
-Orquesta a otros "roles" especializados para generar una respuesta consolidada.
-"""
-from typing import List
+"""Modo Director Multi-Agente."""
 
 from k_zero_core.modes.base import BaseMode
 from k_zero_core.modes.conversation_flow import EXIT_PROMPT_TEXT, is_exit_command

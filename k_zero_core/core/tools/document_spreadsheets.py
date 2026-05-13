@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import csv
-import json
 
 from k_zero_core.core.tool_safety import resolve_safe_path
 from k_zero_core.core.tools.document_common import (
@@ -96,30 +95,6 @@ def crear_xlsx(datos: str, nombre_sugerido: str = "datos", design_md_path: str =
         output = _export_path(nombre_sugerido, ".xlsx")
         wb.save(str(output))
         return _created_result(output, "xlsx", nombre_sugerido)
-    except Exception as exc:
-        return f"Error al crear XLSX: {exc}"
-
-
-def _crear_xlsx_legacy(datos: str, nombre_sugerido: str = "datos") -> str:
-    """Implementación previa conservada solo como referencia interna."""
-    try:
-        from openpyxl import Workbook
-
-        parsed = json.loads(datos)
-        rows = parsed if isinstance(parsed, list) else [parsed]
-        wb = Workbook()
-        ws = wb.active
-        if rows and isinstance(rows[0], dict):
-            headers = list(rows[0].keys())
-            ws.append(headers)
-            for row in rows:
-                ws.append([row.get(header) for header in headers])
-        else:
-            for row in rows:
-                ws.append(row if isinstance(row, list) else [row])
-        output = _export_path(nombre_sugerido, ".xlsx")
-        wb.save(str(output))
-        return f"Archivo creado: {output}"
     except Exception as exc:
         return f"Error al crear XLSX: {exc}"
 
