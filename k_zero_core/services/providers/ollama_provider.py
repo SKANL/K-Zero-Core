@@ -80,7 +80,6 @@ class OllamaProvider(AIProvider):
                 
                 response_message = response.get('message', {})
                 if self._handle_tool_calls(response_message, messages, tools):
-                    # Retomar streaming con los resultados de las herramientas en el historial
                     stream = _retryable_ollama_call(ollama.chat, model=model, messages=messages, stream=True)
                     for chunk in stream:
                         yield chunk['message']['content']

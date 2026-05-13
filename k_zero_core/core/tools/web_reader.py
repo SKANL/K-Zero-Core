@@ -24,8 +24,6 @@ def leer_pagina_web(url: str, max_chars: int = 15000) -> str:
     jina_url = f"https://r.jina.ai/{url}"
     
     try:
-        # Añadir header requerido o recomendado por Jina si fuera necesario, 
-        # pero funciona bien sin key para la versión gratuita.
         req = urllib.request.Request(jina_url, headers={
             'User-Agent': 'Mozilla/5.0 K-Zero-Core Bot',
             'Accept': 'text/plain'

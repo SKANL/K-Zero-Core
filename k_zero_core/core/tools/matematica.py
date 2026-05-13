@@ -7,7 +7,6 @@ Soporta: +, -, *, /, //, %, ** y funciones matemáticas comunes (sqrt, sin, cos,
 import ast
 import math
 import operator
-from typing import Union
 
 # Operadores binarios permitidos
 _SAFE_BINARY_OPS: dict = {
@@ -52,7 +51,7 @@ _SAFE_NAMES: dict = {
 }
 
 
-def _evaluar_nodo(nodo: ast.AST) -> Union[int, float]:
+def _evaluar_nodo(nodo: ast.AST) -> int | float:
     """Evalúa recursivamente un nodo AST usando solo operaciones permitidas."""
     if isinstance(nodo, ast.Expression):
         return _evaluar_nodo(nodo.body)

@@ -60,8 +60,7 @@ def load_declarative_provider_configs(path: Path = PROVIDERS_FILE) -> list[Decla
     """Carga providers declarativos desde providers.json."""
     if not path.exists():
         return []
-    with open(path, "r", encoding="utf-8") as file:
-        data = json.load(file)
+    data = json.loads(path.read_text(encoding="utf-8"))
     providers = data.get("providers", []) if isinstance(data, dict) else []
     configs: list[DeclarativeProviderConfig] = []
     for raw in providers:

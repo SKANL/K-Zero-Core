@@ -29,10 +29,9 @@ def informacion_sistema(detalle: str = "basico") -> str:
         project_root = Path(__file__).resolve().parent.parent.parent.parent
         pyproject_path = project_root / "pyproject.toml"
         if pyproject_path.is_file():
-            with pyproject_path.open("rb") as f:
-                metadata = tomllib.load(f)
-                app_version = metadata.get("project", {}).get("version", "Desconocida")
-                app_name = metadata.get("project", {}).get("name", "K-Zero-Core")
+            metadata = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+            app_version = metadata.get("project", {}).get("version", "Desconocida")
+            app_name = metadata.get("project", {}).get("name", "K-Zero-Core")
             lineas.append(f"Aplicación        : {app_name} (v{app_version})\n")
     except Exception:
         pass
