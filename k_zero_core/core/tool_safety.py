@@ -7,12 +7,11 @@ from pathlib import Path
 
 def _configured_safe_roots() -> list[Path]:
     raw_roots = os.getenv("K_ZERO_SAFE_PATH_ROOTS", "")
-    roots: list[Path] = []
-    for raw in raw_roots.split(os.pathsep):
-        candidate = raw.strip()
-        if candidate:
-            roots.append(Path(candidate).expanduser().resolve())
-    return roots
+    return [
+        Path(candidate).expanduser().resolve()
+        for raw in raw_roots.split(os.pathsep)
+        if (candidate := raw.strip())
+    ]
 
 
 def resolve_safe_path(path_value: str | Path) -> Path:

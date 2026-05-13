@@ -67,9 +67,7 @@ class WorkflowEngine:
         self.director_engine_cls = director_engine_cls
 
     def summarize(self, workflow: WorkflowDefinition) -> WorkflowRunSummary:
-        specs = []
-        for toolset in workflow.toolsets:
-            specs.extend(resolve_toolset_specs(toolset))
+        specs = [spec for toolset in workflow.toolsets for spec in resolve_toolset_specs(toolset)]
         requires_network = workflow.privacy != WorkflowPrivacy.LOCAL or any(spec.requires_network for spec in specs)
         writes_files = workflow.writes_files or any(spec.writes_files for spec in specs)
         privacy = WorkflowPrivacy.NETWORK.value if requires_network else workflow.privacy.value

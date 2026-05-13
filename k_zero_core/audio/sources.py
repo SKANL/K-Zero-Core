@@ -86,9 +86,8 @@ def get_running_applications() -> list[dict]:
             name: str = proc.info["name"] or ""
             if name.endswith(".exe"):
                 name = name[:-4]
-            if name.lower() not in _OS_PROCESSES and name:
-                if name not in unique_apps:
-                    unique_apps[name] = proc.info["pid"]
+            if name and name.lower() not in _OS_PROCESSES and name not in unique_apps:
+                unique_apps[name] = proc.info["pid"]
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             continue
 

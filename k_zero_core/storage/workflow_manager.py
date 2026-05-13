@@ -126,12 +126,13 @@ class WorkflowStore:
     def _validate(self, workflow: WorkflowDefinition) -> None:
         if workflow.mode_key and workflow.mode_key not in MODE_REGISTRY:
             raise ValueError(f"Workflow inválido: modo desconocido '{workflow.mode_key}'.")
-        unknown_toolsets = [name for name in workflow.toolsets if name not in TOOLSETS]
-        if unknown_toolsets:
-            raise ValueError("Workflow inválido: toolset desconocido: " + ", ".join(unknown_toolsets))
-        unknown_roles = [name for name in workflow.roles if name not in ROLE_DEFINITIONS]
-        if unknown_roles:
-            raise ValueError("Workflow inválido: rol desconocido: " + ", ".join(unknown_roles))
+        for values, registry, label in (
+            (workflow.toolsets, TOOLSETS, "toolset"),
+            (workflow.roles, ROLE_DEFINITIONS, "rol"),
+        ):
+            unknown = [name for name in values if name not in registry]
+            if unknown:
+                raise ValueError(f"Workflow inválido: {label} desconocido: " + ", ".join(unknown))
 
     def _to_dict(self, workflow: WorkflowDefinition) -> dict[str, Any]:
         return {
