@@ -1,4 +1,3 @@
-from typing import List, Optional
 import datetime
 
 from k_zero_core.modes.base import AccumulatorMode
@@ -20,13 +19,13 @@ class TranscriptionOnlyMode(AccumulatorMode):
         return False
         
     @property
-    def force_input_type(self) -> Optional[str]:
+    def force_input_type(self) -> str | None:
         return "audio"
 
     def get_description(self) -> str:
         return "Guarda todo lo que hablas directamente a un archivo sin usar IA."
 
-    def get_default_system_prompt(self) -> Optional[str]:
+    def get_default_system_prompt(self) -> str | None:
         return None
 
     def get_accumulation_prompt(self) -> str:
@@ -38,7 +37,7 @@ class TranscriptionOnlyMode(AccumulatorMode):
 
     def process_accumulated(
         self,
-        texts: List[str],
+        texts: list[str],
         chat_session: ChatSession,
         io_handler: IOHandler,
     ) -> None:

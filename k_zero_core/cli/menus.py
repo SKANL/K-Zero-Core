@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 from k_zero_core.storage.prompt_manager import load_all_prompts, save_prompt, delete_prompt
 from k_zero_core.storage.session_manager import list_sessions, delete_session
 from k_zero_core.cli.stt_menu import choose_stt_config as _choose_stt_config
@@ -10,7 +8,7 @@ _EMBEDDING_KEYWORDS = [
 ]
 
 
-def _select_from_list(prompt: str, options: List) -> int:
+def _select_from_list(prompt: str, options: list) -> int:
     """
     Solicita al usuario que elija un índice válido de una lista.
 
@@ -196,7 +194,7 @@ def choose_system_prompt(mode_default: str = "") -> str:
             print("Por favor, ingresa solo números o 'd <numero>'.")
 
 
-def manage_sessions() -> Optional[str]:
+def manage_sessions() -> str | None:
     """Menu to resume, delete, or start a new session. Returns session_id or None."""
     sessions = list_sessions()
     if not sessions:

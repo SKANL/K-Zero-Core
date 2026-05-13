@@ -1,6 +1,5 @@
 """Helpers compartidos para streaming, persistencia y salida de modos."""
 from collections.abc import Callable, Iterable
-from typing import Optional
 
 from k_zero_core.audio.io_handler import IOHandler
 from k_zero_core.services.chat_session import ChatSession
@@ -43,7 +42,7 @@ def save_and_output_response(
     chat_session: ChatSession,
     io_handler: IOHandler,
     response: str,
-    user_text: Optional[str] = None,
+    user_text: str | None = None,
 ) -> None:
     """
     Persiste una respuesta del asistente y la envía por el canal de salida activo.
