@@ -45,7 +45,6 @@ def choose_provider():
     instances = list_provider_options()
 
     if len(instances) == 1:
-        # Un solo proveedor disponible — no tiene sentido mostrar menú
         return instances[0]
 
     print("\n=== Proveedor de IA ===")
@@ -143,7 +142,6 @@ def choose_system_prompt(mode_default: str = "") -> str:
 
         print("\n=== System Prompts ===")
 
-        # Opción 0: prompt del modo activo (solo lectura)
         if mode_default:
             preview = (mode_default[:75] + "...") if len(mode_default) > 75 else mode_default
             print(f"  0. (Usar el del modo actual: \"{preview}\")")
@@ -161,7 +159,6 @@ def choose_system_prompt(mode_default: str = "") -> str:
         total = len(prompt_names) + 1
         seleccion = input(f"\nElige una opción (0 - {total}): ").strip()
 
-        # Comando de eliminación
         if seleccion.lower().startswith("d "):
             try:
                 idx = int(seleccion.split(" ")[1]) - 2

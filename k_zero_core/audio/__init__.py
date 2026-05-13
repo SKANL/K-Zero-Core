@@ -39,17 +39,12 @@ def __getattr__(name: str):
     return value
 
 __all__ = [
-    # Configuración
     "WhisperConfig",
     "TtsConfig",
-    # STT
     "SpeechTranscriber",
     "CustomMicrophone",
-    # TTS
     "TextToSpeech",
-    # I/O
     "IOHandler",
-    # Utilidades
     "MediaDownloader",
     "get_audio_devices",
     "get_running_applications",

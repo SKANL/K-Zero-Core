@@ -27,7 +27,7 @@ class TranscriptionOnlyMode(AccumulatorMode):
         return "Guarda todo lo que hablas directamente a un archivo sin usar IA."
 
     def get_default_system_prompt(self) -> Optional[str]:
-        return None  # No usa IA
+        return None
 
     def get_accumulation_prompt(self) -> str:
         return (
@@ -46,10 +46,8 @@ class TranscriptionOnlyMode(AccumulatorMode):
             print("No se grabó ningún texto.")
             return
 
-        # Unir todos los bloques con doble salto de línea (párrafos)
         texto_completo = "\n\n".join(texts)
 
-        # Guardar en el directorio de datos del proyecto (respeta K_ZERO_DATA_DIR)
         out_dir = DATA_DIR / "transcripciones"
         out_dir.mkdir(parents=True, exist_ok=True)
 

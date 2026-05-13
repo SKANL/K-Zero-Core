@@ -10,8 +10,7 @@ def load_all_prompts() -> Dict[str, str]:
     if not PROMPTS_FILE.exists():
         return {}
     try:
-        with open(PROMPTS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+        return json.loads(PROMPTS_FILE.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
         raise StorageError(f"Error decodificando JSON desde {PROMPTS_FILE}")
     except Exception as e:
@@ -30,8 +29,7 @@ def save_prompt(name: str, content: str) -> None:
     prompts[name] = content
     try:
         PROMPTS_FILE.parent.mkdir(parents=True, exist_ok=True)
-        with open(PROMPTS_FILE, "w", encoding="utf-8") as f:
-            json.dump(prompts, f, indent=4, ensure_ascii=False)
+        PROMPTS_FILE.write_text(json.dumps(prompts, indent=4, ensure_ascii=False), encoding="utf-8")
     except Exception as e:
         raise StorageError(f"Error al guardar el prompt '{name}': {e}")
 
@@ -51,8 +49,7 @@ def delete_prompt(name: str) -> bool:
         return False
     del prompts[name]
     try:
-        with open(PROMPTS_FILE, "w", encoding="utf-8") as f:
-            json.dump(prompts, f, indent=4, ensure_ascii=False)
+        PROMPTS_FILE.write_text(json.dumps(prompts, indent=4, ensure_ascii=False), encoding="utf-8")
         return True
     except Exception as e:
         raise StorageError(f"Error al eliminar el prompt '{name}': {e}")
@@ -68,5 +65,4 @@ def get_prompt(name: str) -> Optional[str]:
     Returns:
         Contenido del prompt o None si no existe.
     """
-    prompts = load_all_prompts()
-    return prompts.get(name)
+    return load_all_prompts().get(name)

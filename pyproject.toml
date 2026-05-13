@@ -40,7 +40,6 @@ dependencies = [
 ]
 
 [project.scripts]
-# Esto permite que si alguien instala el paquete, pueda ejecutar 'k-zero' en su terminal
 k-zero = "k_zero_core.cli.console:run"
 
 [tool.setuptools.packages.find]

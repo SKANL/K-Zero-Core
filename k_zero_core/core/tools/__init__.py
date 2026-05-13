@@ -70,8 +70,6 @@ from k_zero_core.core.tools.registry import (
     build_tool_specs,
 )
 
-# Registro de todas las tools disponibles
-# Para desactivar una tool, simplemente coméntala aquí
 _ALL_TOOLS: list[Callable] = [
     obtener_hora_actual,
     calcular_matematica,

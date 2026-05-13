@@ -24,7 +24,6 @@ def informacion_sistema(detalle: str = "basico") -> str:
 
     lineas = ["=== Información del Sistema ===\n"]
 
-    # K-Zero-Core (Metadata)
     try:
         import tomllib
         project_root = Path(__file__).resolve().parent.parent.parent.parent
