@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import json
 import shutil
-from dataclasses import replace
+from dataclasses import fields, replace
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +31,14 @@ def _enum_value(enum_cls, value: Any, field_name: str):
         return enum_cls(value)
     except ValueError as exc:
         raise ValueError(f"Workflow inválido: valor desconocido para '{field_name}': {value}") from exc
+
+
+def _json_value(value: Any) -> Any:
+    if isinstance(value, StrEnum):
+        return value.value
+    if isinstance(value, tuple):
+        return list(value)
+    return value
 
 
 class WorkflowStore:
@@ -135,22 +144,4 @@ class WorkflowStore:
                 raise ValueError(f"Workflow inválido: {label} desconocido: " + ", ".join(unknown))
 
     def _to_dict(self, workflow: WorkflowDefinition) -> dict[str, Any]:
-        return {
-            "key": workflow.key,
-            "name": workflow.name,
-            "description": workflow.description,
-            "audience": workflow.audience.value,
-            "cost": workflow.cost.value,
-            "privacy": workflow.privacy.value,
-            "input_type": workflow.input_type.value,
-            "output_type": workflow.output_type.value,
-            "mode_key": workflow.mode_key,
-            "default_provider": workflow.default_provider,
-            "toolsets": list(workflow.toolsets),
-            "roles": list(workflow.roles),
-            "system_prompt": workflow.system_prompt,
-            "requires_llm": workflow.requires_llm,
-            "requires_confirmation_for_writes": workflow.requires_confirmation_for_writes,
-            "writes_files": workflow.writes_files,
-            "write_description": workflow.write_description,
-        }
+        return {field.name: _json_value(getattr(workflow, field.name)) for field in fields(workflow)}

@@ -7,6 +7,7 @@ from typing import Any
 
 import yaml
 
+from k_zero_core.core.source_tracking import extract_sources
 from k_zero_core.core.tool_safety import resolve_safe_path
 
 
@@ -297,8 +298,7 @@ def clean_inline_text(text: str) -> str:
 
 
 def extract_urls(text: str) -> list[str]:
-    urls = re.findall(r"https?://[^\s)\]>\"']+", text)
-    return list(dict.fromkeys(url.rstrip(".,;") for url in urls))
+    return [source.url for source in extract_sources(text)]
 
 
 def _split_frontmatter(text: str) -> tuple[str, str]:

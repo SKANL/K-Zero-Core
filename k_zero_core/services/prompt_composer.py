@@ -33,7 +33,7 @@ def strip_memory_context(prompt: str) -> str:
     return _MEMORY_CONTEXT_RE.sub("\n\n", prompt).strip()
 
 
-def compose_memory_context(memory_store: "MemoryStore", max_chars: int = 1800) -> str:
+def compose_memory_context(memory_store: MemoryStore, max_chars: int = 1800) -> str:
     """Renderiza memoria persistente como contexto acotado para el modelo."""
     sections: list[str] = []
     memory_entries = [sanitize_prompt_text(entry.strip()) for entry in memory_store.read("memory")]
@@ -57,7 +57,7 @@ def compose_memory_context(memory_store: "MemoryStore", max_chars: int = 1800) -
     )
 
 
-def apply_memory_context(prompt: str, memory_store: "MemoryStore | None" = None) -> str:
+def apply_memory_context(prompt: str, memory_store: MemoryStore | None = None) -> str:
     """Reemplaza el bloque de memoria persistente en un prompt compuesto."""
     base = strip_memory_context(sanitize_prompt_text(prompt.strip()))
     if memory_store is None:
@@ -74,7 +74,7 @@ def compose_system_prompt(
     base_prompt: str,
     *,
     shared_instructions_file: Path = SHARED_INSTRUCTIONS_FILE,
-    memory_store: "MemoryStore | None" = None,
+    memory_store: MemoryStore | None = None,
 ) -> str:
     """Combina prompt base con instrucciones compartidas opcionales."""
     base = strip_memory_context(sanitize_prompt_text(base_prompt.strip()))

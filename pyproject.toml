@@ -26,7 +26,6 @@ dependencies = [
     "python-dotenv",
     "yt-dlp",
     "psutil",
-    "soundcard",
     "PyAudioWPatch",
     "imageio-ffmpeg",
     "ddgs",
