@@ -123,7 +123,7 @@ def _search_tavily(query: str, max_resultados: int = 5) -> str:
     return "\n".join(salida)
 
 
-def _buscar_duckduckgo_api(query: str) -> str:
+def _buscar_duckduckgo_api(query: str, _max_resultados: int = 5) -> str:
     """Fallback gratuito usando la API instantánea de DuckDuckGo."""
     try:
         url = f"https://api.duckduckgo.com/?q={urllib.parse.quote(query)}&format=json&no_html=1&skip_disambig=1"
@@ -144,11 +144,6 @@ def _buscar_duckduckgo_api(query: str) -> str:
         return f"Error al buscar '{query}' en DuckDuckGo: {exc}"
 
 
-def _search_duckduckgo_instant(query: str, _max_resultados: int = 5) -> str:
-    """Adapta la API instantánea al contrato de providers."""
-    return _buscar_duckduckgo_api(query)
-
-
 def buscar_en_internet(query: str, max_resultados: int = 5) -> str:
     """
     Busca información en internet priorizando opciones gratuitas.
@@ -163,14 +158,14 @@ def buscar_en_internet(query: str, max_resultados: int = 5) -> str:
         providers.append(_search_brave_free)
     if os.getenv("TAVILY_API_KEY", "").strip():
         providers.append(_search_tavily)
-    providers.append(_search_duckduckgo_instant)
+    providers.append(_buscar_duckduckgo_api)
 
     errors: list[str] = []
     for provider in providers:
         try:
             return format_sources_block(provider(query, max_resultados))
         except Exception as exc:
-            provider_name = getattr(provider, "__name__", provider.__class__.__name__)
+            provider_name = "_search_duckduckgo_instant" if provider is _buscar_duckduckgo_api else getattr(provider, "__name__", provider.__class__.__name__)
             errors.append(f"{provider_name}: {exc}")
 
     return f"No se pudo buscar '{query}'. Fallos: " + " | ".join(errors)

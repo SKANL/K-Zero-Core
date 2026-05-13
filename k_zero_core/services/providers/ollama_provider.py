@@ -45,18 +45,6 @@ class OllamaProvider(AIProvider):
                 f"No se pudo conectar a Ollama. Asegúrate de que la app esté corriendo. Detalle: {e}"
             )
 
-    def _handle_tool_calls(
-        self,
-        response_message: Dict[str, Any],
-        messages: List[Dict[str, Any]],
-        tools: List
-    ) -> bool:
-        """
-        Ejecuta las herramientas solicitadas por el modelo y actualiza el historial.
-        Retorna True si se ejecutaron herramientas, False en caso contrario.
-        """
-        return execute_tool_calls(response_message, messages, tools)
-
     def stream_chat(
         self,
         model: str,
@@ -75,7 +63,7 @@ class OllamaProvider(AIProvider):
                 )
                 
                 response_message = response.get('message', {})
-                if self._handle_tool_calls(response_message, messages, tools):
+                if execute_tool_calls(response_message, messages, tools):
                     stream = _retryable_ollama_call(ollama.chat, model=model, messages=messages, stream=True)
                     for chunk in stream:
                         yield chunk['message']['content']
