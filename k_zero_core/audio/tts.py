@@ -38,10 +38,6 @@ class TextToSpeech:
         self.default_voice = self.config.voice
         self._init_mixer()
 
-    # ------------------------------------------------------------------
-    # Métodos privados
-    # ------------------------------------------------------------------
-
     @staticmethod
     def _init_mixer() -> None:
         """
@@ -74,7 +70,6 @@ class TextToSpeech:
 
         communicate = edge_tts.Communicate(text, voice)
 
-        # NamedTemporaryFile con delete=False: el archivo existe hasta que lo borramos
         with NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
             temp_path = tmp.name
 
@@ -84,7 +79,6 @@ class TextToSpeech:
             pygame.mixer.music.load(temp_path)
             pygame.mixer.music.play()
 
-            # Esperar a que termine la reproducción sin bloquear el event loop
             import time
             while pygame.mixer.music.get_busy():
                 time.sleep(0.05)
@@ -96,7 +90,6 @@ class TextToSpeech:
         except Exception as e:
             logger.error("Error inesperado en TTS: %s", e)
         finally:
-            # Garantizar limpieza del archivo temporal en cualquier caso
             try:
                 from pathlib import Path
                 Path(temp_path).unlink(missing_ok=True)
@@ -126,7 +119,6 @@ class TextToSpeech:
             loop = None
 
         if loop and loop.is_running():
-            # Hay un event loop activo: ejecutar en un thread separado para no bloquearlo
             import concurrent.futures
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
                 future = executor.submit(asyncio.run, coro)

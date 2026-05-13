@@ -14,7 +14,6 @@ from k_zero_core.modes.conversation_flow import EXIT_COMMANDS
 
 logger = logging.getLogger(__name__)
 
-# Fuentes de audio soportadas y sus métodos de captura
 _STREAMING_SOURCES = frozenset({"mic_stream"})
 _LIVE_SOURCES = frozenset({"mic", "mic_stream", "loopback"})
 
@@ -95,10 +94,6 @@ class IOHandler:
         logger.debug("Iniciando TTS para respuesta de %d caracteres.", len(text))
         print("🔊 Hablando...")
         self.tts.speak(text, voice=self.tts.default_voice)
-
-    # ------------------------------------------------------------------
-    # Métodos privados de captura de audio
-    # ------------------------------------------------------------------
 
     def _capture_audio(self) -> str:
         """
