@@ -25,8 +25,6 @@ def run_advanced_mode(
 ) -> None:
     """Ejecuta el flujo histórico basado en MODE_REGISTRY."""
     mode_registry = mode_registry or MODE_REGISTRY
-    chat = None
-    plugin = None
     mode_key = choose_mode_func()
     plugin = mode_registry[mode_key]()
 
@@ -93,7 +91,6 @@ def run_guided_workflow(
 def run() -> None:
     """Main entry point for the CLI."""
 
-    # 0. Cargar plugins dinámicos primero
     load_external_plugins()
 
     print("Bienvenido a Ollama CLI")
@@ -120,6 +117,3 @@ def run() -> None:
     except Exception as e:
         print(f"\nOcurrió un error inesperado: {e}")
         sys.exit(1)
-    finally:
-        # Cada modo/workflow persiste su sesión durante la ejecución.
-        pass

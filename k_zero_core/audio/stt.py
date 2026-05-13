@@ -11,7 +11,6 @@ import io
 import logging
 import os
 import sys
-from typing import Optional
 
 # pyaudiowpatch debe importarse antes que SpeechRecognition en Windows para que
 # el alias 'pyaudio' apunte a la versión con soporte WASAPI loopback.
@@ -110,7 +109,7 @@ class SpeechTranscriber:
         - transcribe_file      : Transcribe un archivo de audio local o un objeto BytesIO.
     """
 
-    def __init__(self, config: Optional[WhisperConfig] = None):
+    def __init__(self, config: WhisperConfig | None = None):
         """
         Inicializa el modelo Whisper y el reconocedor de SpeechRecognition.
 
@@ -141,12 +140,8 @@ class SpeechTranscriber:
         self.recognizer.non_speaking_duration = DEFAULT_NON_SPEAKING_DURATION
         self._ambient_adjusted = False
 
-    # ------------------------------------------------------------------
-    # Métodos privados de inicialización
-    # ------------------------------------------------------------------
-
     @staticmethod
-    def _resolve_device(device: Optional[str]) -> tuple[str, str]:
+    def _resolve_device(device: str | None) -> tuple[str, str]:
         """
         Determina el dispositivo de inferencia y el tipo de cuantización óptimos.
 
@@ -197,10 +192,6 @@ class SpeechTranscriber:
                     raise APIVoiceException(f"Error al inicializar Whisper en CPU: {cpu_e}") from cpu_e
             raise APIVoiceException(f"Error al inicializar Whisper: {e}") from e
 
-    # ------------------------------------------------------------------
-    # Métodos privados de transcripción
-    # ------------------------------------------------------------------
-
     def _do_transcribe(self, audio_source) -> str:
         """
         Ejecuta la transcripción usando el modelo Whisper con la configuración activa.
@@ -247,13 +238,9 @@ class SpeechTranscriber:
             self._ambient_adjusted = True
             print("Listo.")
 
-    # ------------------------------------------------------------------
-    # API pública
-    # ------------------------------------------------------------------
-
     def listen_walkie_talkie(
         self,
-        device_index: Optional[int] = None,
+        device_index: int | None = None,
         is_loopback: bool = False,
     ) -> str:
         """
@@ -293,7 +280,7 @@ class SpeechTranscriber:
 
     def listen_streaming(
         self,
-        device_index: Optional[int] = None,
+        device_index: int | None = None,
         is_loopback: bool = False,
     ) -> str:
         """
@@ -318,12 +305,9 @@ class SpeechTranscriber:
         def _on_audio_captured(recognizer: sr.Recognizer, audio: sr.AudioData) -> None:
             audio_queue.put(audio)
 
-        # Ajustes previos al context manager (solo loopback, no necesita stream abierto)
         if is_loopback:
             self._configure_for_loopback()
 
-        # Corregido: Todo el ciclo de vida del stream ocurre dentro del with.
-        # El context manager debe estar abierto cuando listen_in_background inicia.
         with CustomMicrophone(device_index=device_index) as source:
             if not is_loopback:
                 self._adjust_ambient_noise(source)

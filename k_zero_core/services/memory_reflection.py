@@ -49,10 +49,6 @@ class PendingMemory:
     content: str
 
 
-def _normalize_confirmation(text: str) -> str:
-    return text.strip().lower().replace(".", "").replace("!", "")
-
-
 def _sentence_case(text: str) -> str:
     stripped = text.strip().strip('"').strip("'").strip()
     if not stripped:
@@ -73,7 +69,7 @@ class MemoryReflectionService:
         pending = self._pending_from_session(chat_session)
         if pending is None:
             return None
-        if _normalize_confirmation(user_text) not in CONFIRMATION_PHRASES:
+        if user_text.strip().lower().replace(".", "").replace("!", "") not in CONFIRMATION_PHRASES:
             return None
 
         result = self.store.add(pending.target, pending.content)

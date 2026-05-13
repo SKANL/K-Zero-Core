@@ -1,4 +1,5 @@
-from typing import List, Dict, Any, Optional, Generator
+from collections.abc import Generator
+from typing import Any
 
 import ollama
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
@@ -8,18 +9,14 @@ from k_zero_core.core.tool_executor import execute_tool_calls
 from k_zero_core.services.providers.base_provider import AIProvider
 
 
-def _retryable_ollama_call(func, *args, **kwargs):
-    """Ejecuta una llamada a Ollama con backoff para cargas lentas del modelo local."""
-    return _retryable_ollama_call_impl(func, *args, **kwargs)
-
-
 @retry(
     retry=retry_if_exception_type(Exception),
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=0.1, min=0.1, max=1),
     reraise=True,
 )
-def _retryable_ollama_call_impl(func, *args, **kwargs):
+def _retryable_ollama_call(func, *args, **kwargs):
+    """Ejecuta una llamada a Ollama con backoff para cargas lentas del modelo local."""
     return func(*args, **kwargs)
 
 
@@ -39,7 +36,7 @@ class OllamaProvider(AIProvider):
     from functools import lru_cache
 
     @lru_cache(maxsize=1)
-    def get_available_models(self) -> List[str]:
+    def get_available_models(self) -> list[str]:
         """Retorna los modelos instalados localmente en Ollama."""
         try:
             response = _retryable_ollama_call(ollama.list)
@@ -49,23 +46,11 @@ class OllamaProvider(AIProvider):
                 f"No se pudo conectar a Ollama. Asegúrate de que la app esté corriendo. Detalle: {e}"
             )
 
-    def _handle_tool_calls(
-        self,
-        response_message: Dict[str, Any],
-        messages: List[Dict[str, Any]],
-        tools: List
-    ) -> bool:
-        """
-        Ejecuta las herramientas solicitadas por el modelo y actualiza el historial.
-        Retorna True si se ejecutaron herramientas, False en caso contrario.
-        """
-        return execute_tool_calls(response_message, messages, tools)
-
     def stream_chat(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
-        tools: Optional[List] = None,
+        messages: list[dict[str, Any]],
+        tools: list | None = None,
     ) -> Generator[str, None, None]:
         """
         Envía mensajes a Ollama y hace yield de los chunks de la respuesta.
@@ -79,8 +64,7 @@ class OllamaProvider(AIProvider):
                 )
                 
                 response_message = response.get('message', {})
-                if self._handle_tool_calls(response_message, messages, tools):
-                    # Retomar streaming con los resultados de las herramientas en el historial
+                if execute_tool_calls(response_message, messages, tools):
                     stream = _retryable_ollama_call(ollama.chat, model=model, messages=messages, stream=True)
                     for chunk in stream:
                         yield chunk['message']['content']

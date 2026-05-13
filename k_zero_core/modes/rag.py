@@ -84,7 +84,6 @@ class DocumentRAGMode(BaseMode):
             if io_handler.input_type == 'audio':
                 print(f"Tú (Voz): {user_text}")
 
-            # 1. Búsqueda semántica — encuentra los chunks más relevantes
             relevant_chunks = self._rag_engine.search(
                 user_text, self._collection_id, top_k=self.TOP_K_CHUNKS
             )
@@ -99,14 +98,12 @@ class DocumentRAGMode(BaseMode):
 
             print(f"{chat_session.model} está pensando... ", end="", flush=True)
 
-            # 3. Llamada al LLM con contexto efímero
             stream = chat_session.provider.stream_chat(
                 chat_session.model, messages_for_call
             )
 
             respuesta_completa = stream_text_response(stream, "RAG Respuesta")
 
-            # 4. Solo Q&A limpio en el historial de sesión
             save_and_output_response(
                 chat_session, io_handler, respuesta_completa, user_text=user_text
             )

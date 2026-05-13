@@ -41,10 +41,8 @@ def format_sources_block(text: str) -> str:
     sources = extract_sources(text)
     if not sources:
         return text
-    lines = ["", "FUENTES CONSULTADAS:"]
-    for index, source in enumerate(sources, start=1):
-        lines.append(f"{index}. {source.url}")
-    return text.rstrip() + "\n" + "\n".join(lines)
+    source_lines = "\n".join(f"{index}. {source.url}" for index, source in enumerate(sources, start=1))
+    return f"{text.rstrip()}\n\nFUENTES CONSULTADAS:\n{source_lines}"
 
 
 def missing_sources_message() -> str:

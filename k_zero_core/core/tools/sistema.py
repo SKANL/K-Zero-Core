@@ -3,6 +3,7 @@ Herramienta: Información del sistema operativo y hardware.
 """
 import platform
 import shutil
+from contextlib import suppress
 from pathlib import Path
 
 import psutil
@@ -24,30 +25,23 @@ def informacion_sistema(detalle: str = "basico") -> str:
 
     lineas = ["=== Información del Sistema ===\n"]
 
-    # K-Zero-Core (Metadata)
-    try:
+    with suppress(Exception):
         import tomllib
         project_root = Path(__file__).resolve().parent.parent.parent.parent
         pyproject_path = project_root / "pyproject.toml"
         if pyproject_path.is_file():
-            with pyproject_path.open("rb") as f:
-                metadata = tomllib.load(f)
-                app_version = metadata.get("project", {}).get("version", "Desconocida")
-                app_name = metadata.get("project", {}).get("name", "K-Zero-Core")
+            metadata = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+            app_version = metadata.get("project", {}).get("version", "Desconocida")
+            app_name = metadata.get("project", {}).get("name", "K-Zero-Core")
             lineas.append(f"Aplicación        : {app_name} (v{app_version})\n")
-    except Exception:
-        pass
 
-    # Sistema Operativo
     lineas.append(f"Sistema Operativo : {platform.system()} {platform.release()}")
     lineas.append(f"Versión SO        : {platform.version()}")
     lineas.append(f"Arquitectura      : {platform.machine()} ({platform.architecture()[0]})")
 
-    # Procesador
     procesador = platform.processor() or platform.uname().processor or "N/A"
     lineas.append(f"Procesador        : {procesador}")
 
-    # Python
     lineas.append(f"Python            : {platform.python_version()} ({platform.python_implementation()})")
 
     if normalized in {"basico", "disco", "todo"}:
@@ -59,17 +53,14 @@ def informacion_sistema(detalle: str = "basico") -> str:
     if normalized in {"ollama", "todo"}:
         lineas.extend(_ollama_lines())
 
-    # Directorio del usuario
     lineas.append(f"Directorio home   : {Path.home()}")
 
-    # Hostname
     lineas.append(f"Nombre del equipo  : {platform.node()}")
 
     return "\n".join(lineas)
 
 
 def _disk_lines() -> list[str]:
-    lineas: list[str] = []
     gigabyte = 1024 ** 3
     try:
         disco = shutil.disk_usage(Path.home())
@@ -77,13 +68,12 @@ def _disk_lines() -> list[str]:
         used_gb = disco.used / gigabyte
         free_gb = disco.free / gigabyte
         uso_pct = (disco.used / disco.total) * 100
-        lineas.append(
+        return [
             f"Disco principal   : {used_gb:.1f} GB usados / {total_gb:.1f} GB totales "
             f"({free_gb:.1f} GB libres, {uso_pct:.0f}% ocupado)"
-        )
+        ]
     except Exception:
-        lineas.append("Disco principal   : No disponible")
-    return lineas
+        return ["Disco principal   : No disponible"]
 
 
 def _hardware_lines() -> list[str]:
@@ -125,14 +115,14 @@ def _detect_gpu() -> str:
 
 
 def _ollama_lines() -> list[str]:
-    lineas = ["Ollama            : No disponible"]
     try:
         import ollama
 
         models = ollama.list().get("models", [])
         names = [model.get("model") or model.get("name", "") for model in models]
-        lineas[0] = "Ollama            : Disponible"
-        lineas.append("Modelos Ollama    : " + (", ".join(name for name in names if name) or "sin modelos listados"))
+        return [
+            "Ollama            : Disponible",
+            "Modelos Ollama    : " + (", ".join(name for name in names if name) or "sin modelos listados"),
+        ]
     except Exception as exc:
-        lineas.append(f"Ollama detalle    : {exc}")
-    return lineas
+        return ["Ollama            : No disponible", f"Ollama detalle    : {exc}"]

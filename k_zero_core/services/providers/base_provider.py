@@ -9,7 +9,8 @@ Para agregar un nuevo proveedor:
 No necesitas modificar ningún otro archivo del proyecto.
 """
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional, Generator
+from collections.abc import Generator
+from typing import Any
 
 
 class AIProvider(ABC):
@@ -25,24 +26,22 @@ class AIProvider(ABC):
     @abstractmethod
     def get_display_name(self) -> str:
         """Nombre visible en los menús (ej. 'Ollama (Local)')."""
-        pass
 
     @abstractmethod
-    def get_available_models(self) -> List[str]:
+    def get_available_models(self) -> list[str]:
         """
         Retorna la lista de modelos disponibles en este proveedor.
 
         Raises:
             OllamaConnectionError o equivalente si el servicio no está disponible.
         """
-        pass
 
     @abstractmethod
     def stream_chat(
         self,
         model: str,
-        messages: List[Dict[str, Any]],
-        tools: Optional[List] = None,
+        messages: list[dict[str, Any]],
+        tools: list | None = None,
     ) -> Generator[str, None, None]:
         """
         Envía mensajes al proveedor y hace yield de los chunks de texto.
@@ -55,4 +54,3 @@ class AIProvider(ABC):
         Yields:
             Fragmentos de texto de la respuesta.
         """
-        pass

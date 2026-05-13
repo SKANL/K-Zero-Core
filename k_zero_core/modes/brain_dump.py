@@ -1,5 +1,4 @@
 import datetime
-from typing import List
 
 from k_zero_core.modes.base import AccumulatorMode
 from k_zero_core.services.chat_session import ChatSession
@@ -35,7 +34,7 @@ class BrainDumpMode(AccumulatorMode):
 
     def process_accumulated(
         self,
-        texts: List[str],
+        texts: list[str],
         chat_session: ChatSession,
         io_handler: IOHandler,
     ) -> None:
@@ -52,7 +51,6 @@ class BrainDumpMode(AccumulatorMode):
 
         print(f"{chat_session.model} está organizando tus ideas... ", end="", flush=True)
 
-        # Acumular silenciosamente — el resultado va a archivo, no a pantalla
         stream = chat_session.provider.stream_chat(chat_session.model, chat_session.messages)
         respuesta_completa = "".join(stream)
 

@@ -3,11 +3,11 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any
 
 import yaml
 
+from k_zero_core.core.source_tracking import extract_sources
 from k_zero_core.core.tool_safety import resolve_safe_path
 
 
@@ -298,15 +298,7 @@ def clean_inline_text(text: str) -> str:
 
 
 def extract_urls(text: str) -> list[str]:
-    urls = re.findall(r"https?://[^\s)\]>\"']+", text)
-    deduped: list[str] = []
-    seen: set[str] = set()
-    for url in urls:
-        clean = url.rstrip(".,;")
-        if clean not in seen:
-            seen.add(clean)
-            deduped.append(clean)
-    return deduped
+    return [source.url for source in extract_sources(text)]
 
 
 def _split_frontmatter(text: str) -> tuple[str, str]:
@@ -359,16 +351,13 @@ def _sections_out_of_order(sections: dict[str, str]) -> bool:
 
 
 def _find_token_references(value: Any) -> list[str]:
-    refs: list[str] = []
     if isinstance(value, dict):
-        for child in value.values():
-            refs.extend(_find_token_references(child))
-    elif isinstance(value, list):
-        for child in value:
-            refs.extend(_find_token_references(child))
-    elif isinstance(value, str):
-        refs.extend(re.findall(r"\{([a-zA-Z0-9_.-]+)\}", value))
-    return refs
+        return [ref for child in value.values() for ref in _find_token_references(child)]
+    if isinstance(value, list):
+        return [ref for child in value for ref in _find_token_references(child)]
+    if isinstance(value, str):
+        return re.findall(r"\{([a-zA-Z0-9_.-]+)\}", value)
+    return []
 
 
 def _read_path_or_text(path_o_texto: str) -> str:

@@ -7,14 +7,12 @@ Provee:
 """
 
 import logging
-from typing import Optional
 
 from k_zero_core.audio.file_capture import FILE_SOURCES, transcribe_file_source
 from k_zero_core.modes.conversation_flow import EXIT_COMMANDS
 
 logger = logging.getLogger(__name__)
 
-# Fuentes de audio soportadas y sus métodos de captura
 _STREAMING_SOURCES = frozenset({"mic_stream"})
 _LIVE_SOURCES = frozenset({"mic", "mic_stream", "loopback"})
 
@@ -40,7 +38,7 @@ class IOHandler:
         output_type: str,
         stt=None,
         tts=None,
-        stt_config: Optional[dict] = None,
+        stt_config: dict | None = None,
     ):
         """
         Args:
@@ -96,10 +94,6 @@ class IOHandler:
         print("🔊 Hablando...")
         self.tts.speak(text, voice=self.tts.default_voice)
 
-    # ------------------------------------------------------------------
-    # Métodos privados de captura de audio
-    # ------------------------------------------------------------------
-
     def _capture_audio(self) -> str:
         """
         Enruta la captura al método correcto según la fuente configurada.
@@ -149,7 +143,7 @@ class IOHandler:
         Returns:
             Texto transcrito desde el audio capturado.
         """
-        device_index: Optional[int] = self.stt_config.get("device_index")
+        device_index: int | None = self.stt_config.get("device_index")
         is_loopback = source == "loopback"
 
         if source in _STREAMING_SOURCES:

@@ -24,8 +24,6 @@ def leer_pagina_web(url: str, max_chars: int = 15000) -> str:
     jina_url = f"https://r.jina.ai/{url}"
     
     try:
-        # Añadir header requerido o recomendado por Jina si fuera necesario, 
-        # pero funciona bien sin key para la versión gratuita.
         req = urllib.request.Request(jina_url, headers={
             'User-Agent': 'Mozilla/5.0 K-Zero-Core Bot',
             'Accept': 'text/plain'
@@ -53,7 +51,6 @@ def extraer_wikipedia(tema: str, idioma: str = "es") -> str:
         Resumen del artículo de Wikipedia.
     """
     try:
-        # 1. Buscar el título correcto
         search_url = f"https://{idioma}.wikipedia.org/w/api.php?action=query&list=search&srsearch={urllib.parse.quote(tema)}&utf8=&format=json"
         req = urllib.request.Request(search_url, headers={'User-Agent': 'K-Zero-Core Bot'})
         
@@ -63,10 +60,8 @@ def extraer_wikipedia(tema: str, idioma: str = "es") -> str:
         if not search_data.get("query", {}).get("search"):
             return f"No se encontró ningún artículo de Wikipedia sobre '{tema}' en el idioma '{idioma}'."
             
-        # Tomar el primer resultado
         titulo = search_data["query"]["search"][0]["title"]
-        
-        # 2. Extraer el resumen
+
         extract_url = f"https://{idioma}.wikipedia.org/w/api.php?action=query&prop=extracts&exintro&explaintext&redirects=1&titles={urllib.parse.quote(titulo)}&format=json"
         req2 = urllib.request.Request(extract_url, headers={'User-Agent': 'K-Zero-Core Bot'})
         

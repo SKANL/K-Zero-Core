@@ -14,8 +14,7 @@ Variables de entorno soportadas:
 """
 
 import os
-from dataclasses import dataclass, field
-from typing import Optional, Tuple
+from dataclasses import dataclass
 
 
 @dataclass
@@ -30,10 +29,10 @@ class WhisperConfig:
     model_size: str = "small"
     """Tamaño del modelo. 'small' ofrece buen balance precisión/velocidad en CPU."""
 
-    language: Optional[str] = "es"
+    language: str | None = "es"
     """Código de idioma ISO-639-1. None activa la autodetección (mayor latencia)."""
 
-    device: Optional[str] = None
+    device: str | None = None
     """
     Dispositivo de inferencia: 'cuda', 'cpu'. None activa la autodetección:
     usa CUDA si torch está disponible, CPU en caso contrario.
@@ -45,7 +44,7 @@ class WhisperConfig:
     best_of: int = 5
     """Candidatos evaluados al usar temperatura > 0. Debe ser >= beam_size."""
 
-    temperature: Tuple[float, ...] = (0.0, 0.2, 0.4, 0.6, 0.8, 1.0)
+    temperature: tuple[float, ...] = (0.0, 0.2, 0.4, 0.6, 0.8, 1.0)
     """
     Secuencia de temperaturas de fallback. Whisper prueba en orden ascendente
     si la transcripción actual supera los umbrales de compression_ratio o log_prob.

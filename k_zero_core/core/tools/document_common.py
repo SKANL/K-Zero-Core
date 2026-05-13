@@ -9,8 +9,8 @@ from typing import Any
 from k_zero_core.core.config import DATA_DIR
 from k_zero_core.core.tool_safety import resolve_safe_path
 from k_zero_core.services.design_md import (
-    aplicar_diseno_entregable,
     clean_inline_text,
+    extract_urls,
     parse_markdown_blocks,
 )
 
@@ -61,10 +61,10 @@ def _hex_rgb(hex_color: str) -> tuple[int, int, int]:
 
 
 def _first_heading(blocks: list[dict[str, Any]], default: str) -> str:
-    for block in blocks:
-        if block["type"] == "heading" and block.get("level") == 1:
-            return block["text"]
-    return default
+    return next(
+        (block["text"] for block in blocks if block["type"] == "heading" and block.get("level") == 1),
+        default,
+    )
 
 
 def _table_rows(block: dict[str, Any]) -> list[list[str]]:
@@ -84,7 +84,7 @@ def _rows_from_json_or_markdown(datos: str) -> tuple[list[str], list[list[Any]],
         return [f"Columna {index}" for index in range(1, width + 1)], normalized, sources
     except Exception:
         blocks = parse_markdown_blocks(datos)
-        sources = aplicar_diseno_entregable(datos, "xlsx")["sources"]
+        sources = extract_urls(datos)
         for block in blocks:
             if block["type"] == "table":
                 return block["headers"], block["rows"], sources
@@ -114,14 +114,16 @@ def analizar_archivos_frontend(path: str, max_chars: int = 12000) -> str:
 
 def validar_entregable(texto: str, requisitos: str) -> str:
     """Valida de forma simple si un texto cumple requisitos explícitos."""
-    missing = []
-    warnings = []
-    if "**" in texto or "###" in texto or any(line.strip().startswith("|") for line in texto.splitlines()):
-        warnings.append("El entregable parece contener Markdown crudo visible; usa limpiar_markdown_entregable o render nativo.")
-    for raw in requisitos.replace(";", "\n").splitlines():
-        requirement = raw.strip("- ").strip()
-        if requirement and requirement.lower() not in texto.lower():
-            missing.append(requirement)
+    missing = [
+        requirement
+        for raw in requisitos.replace(";", "\n").splitlines()
+        if (requirement := raw.strip("- ").strip()) and requirement.lower() not in texto.lower()
+    ]
+    warnings = (
+        ["El entregable parece contener Markdown crudo visible; usa limpiar_markdown_entregable o render nativo."]
+        if "**" in texto or "###" in texto or any(line.strip().startswith("|") for line in texto.splitlines())
+        else []
+    )
     if not missing and not warnings:
         return "Validación: cumple los requisitos explícitos revisados."
     lines = ["Validación:"]

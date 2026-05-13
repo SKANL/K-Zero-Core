@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 from k_zero_core.storage.prompt_manager import load_all_prompts, save_prompt, delete_prompt
 from k_zero_core.storage.session_manager import list_sessions, delete_session
 from k_zero_core.cli.stt_menu import choose_stt_config as _choose_stt_config
@@ -10,7 +8,7 @@ _EMBEDDING_KEYWORDS = [
 ]
 
 
-def _select_from_list(prompt: str, options: List) -> int:
+def _select_from_list(prompt: str, options: list) -> int:
     """
     Solicita al usuario que elija un índice válido de una lista.
 
@@ -45,7 +43,6 @@ def choose_provider():
     instances = list_provider_options()
 
     if len(instances) == 1:
-        # Un solo proveedor disponible — no tiene sentido mostrar menú
         return instances[0]
 
     print("\n=== Proveedor de IA ===")
@@ -143,7 +140,6 @@ def choose_system_prompt(mode_default: str = "") -> str:
 
         print("\n=== System Prompts ===")
 
-        # Opción 0: prompt del modo activo (solo lectura)
         if mode_default:
             preview = (mode_default[:75] + "...") if len(mode_default) > 75 else mode_default
             print(f"  0. (Usar el del modo actual: \"{preview}\")")
@@ -161,7 +157,6 @@ def choose_system_prompt(mode_default: str = "") -> str:
         total = len(prompt_names) + 1
         seleccion = input(f"\nElige una opción (0 - {total}): ").strip()
 
-        # Comando de eliminación
         if seleccion.lower().startswith("d "):
             try:
                 idx = int(seleccion.split(" ")[1]) - 2
@@ -199,7 +194,7 @@ def choose_system_prompt(mode_default: str = "") -> str:
             print("Por favor, ingresa solo números o 'd <numero>'.")
 
 
-def manage_sessions() -> Optional[str]:
+def manage_sessions() -> str | None:
     """Menu to resume, delete, or start a new session. Returns session_id or None."""
     sessions = list_sessions()
     if not sessions:

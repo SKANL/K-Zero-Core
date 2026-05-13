@@ -1,24 +1,20 @@
 import json
 import statistics
-from typing import Union, List
 
 from k_zero_core.core.tool_safety import resolve_safe_path
 
 
-def _extraer_numeros(datos: Union[dict, list, int, float, str, bool]) -> List[float]:
+def _extraer_numeros(datos: dict | list | int | float | str | bool) -> list[float]:
     """
     Recorre recursivamente una estructura de datos y extrae todos los valores numéricos.
     """
-    numeros = []
     if isinstance(datos, dict):
-        for valor in datos.values():
-            numeros.extend(_extraer_numeros(valor))
-    elif isinstance(datos, list):
-        for valor in datos:
-            numeros.extend(_extraer_numeros(valor))
-    elif isinstance(datos, (int, float)) and not isinstance(datos, bool):
-        numeros.append(float(datos))
-    return numeros
+        return [numero for valor in datos.values() for numero in _extraer_numeros(valor)]
+    if isinstance(datos, list):
+        return [numero for valor in datos for numero in _extraer_numeros(valor)]
+    if isinstance(datos, (int, float)) and not isinstance(datos, bool):
+        return [float(datos)]
+    return []
 
 def analizar_valores_json(ruta_archivo: str) -> str:
     """Extrae todos los números de un archivo JSON (sin importar su estructura) y calcula el valor máximo, mínimo y la mediana.
@@ -35,8 +31,7 @@ def analizar_valores_json(ruta_archivo: str) -> str:
         return f"Error: {e}"
 
     try:
-        with path.open("r", encoding="utf-8") as f:
-            datos = json.load(f)
+        datos = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
         return f"Error: No se encontró el archivo en la ruta '{path}'."
     except json.JSONDecodeError as e:

@@ -1,7 +1,4 @@
-"""
-Herramientas de sistema de archivos: leer archivos y listar directorios.
-"""
-from pathlib import Path
+"""Herramientas de sistema de archivos: leer archivos y listar directorios."""
 
 from k_zero_core.core.tool_safety import resolve_safe_path
 

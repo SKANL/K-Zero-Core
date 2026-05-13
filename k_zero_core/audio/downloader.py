@@ -9,6 +9,7 @@ Provee:
 import logging
 import os
 import tempfile
+from contextlib import suppress
 
 from k_zero_core.core.exceptions import APIVoiceException
 
@@ -86,14 +87,9 @@ class MediaDownloader:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
         except Exception as e:
-            # Limpiar cualquier archivo parcial si la descarga falla
             for ext in (".mp3", ".webm", ".m4a", ".opus", ".tmp"):
-                partial = output_stem + ext
-                if os.path.exists(partial):
-                    try:
-                        os.remove(partial)
-                    except OSError:
-                        pass
+                with suppress(OSError):
+                    os.remove(output_stem + ext)
             raise APIVoiceException(f"Error al descargar audio de YouTube: {e}") from e
 
         if not os.path.exists(audio_path):

@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import Optional, List
 
 from k_zero_core.services.chat_session import ChatSession
 from k_zero_core.audio.io_handler import IOHandler
@@ -21,7 +20,6 @@ class BaseMode(ABC):
     @abstractmethod
     def get_name(self) -> str:
         """Return the display name of the mode."""
-        pass
 
     @property
     def requires_llm(self) -> bool:
@@ -29,25 +27,23 @@ class BaseMode(ABC):
         return True
         
     @property
-    def force_input_type(self) -> Optional[str]:
+    def force_input_type(self) -> str | None:
         """Fuerza un tipo de entrada específico ('audio' o 'text'). None si es libre."""
         return None
 
     @abstractmethod
     def get_description(self) -> str:
         """Return a short description of the mode."""
-        pass
 
     @abstractmethod
-    def get_default_system_prompt(self) -> Optional[str]:
+    def get_default_system_prompt(self) -> str | None:
         """Return the fallback/default system prompt for this mode, if any."""
-        pass
 
     def get_voice(self) -> str:
         """Return the default voice ID for this mode."""
         return "es-MX-DaliaNeural"
 
-    def get_tools(self) -> Optional[list]:
+    def get_tools(self) -> list | None:
         """Return a list of python functions to be used as tools by the model."""
         from k_zero_core.core.tools import get_all_tools
         return get_all_tools()
@@ -62,14 +58,13 @@ class BaseMode(ABC):
 
     def on_start(self, chat_session: ChatSession, io_handler: IOHandler) -> None:
         """Optional hook to execute logic before the main loop starts."""
-        pass
 
     def _stream_and_respond(
         self,
         chat_session: ChatSession,
         io_handler: IOHandler,
         label: str = "Respuesta",
-        tools: Optional[list] = None,
+        tools: list | None = None,
     ) -> str:
         """
         Streams a response from the active AI provider for the current chat session,
@@ -176,7 +171,7 @@ class AccumulatorMode(BaseMode):
         - get_accumulation_prompt()  → instructions shown at loop start
     """
 
-    def get_stop_words(self) -> List[str]:
+    def get_stop_words(self) -> list[str]:
         """Words/phrases that trigger end of accumulation (case-insensitive)."""
         return list(ACCUMULATOR_STOP_WORDS)
 
@@ -190,7 +185,7 @@ class AccumulatorMode(BaseMode):
     @abstractmethod
     def process_accumulated(
         self,
-        texts: List[str],
+        texts: list[str],
         chat_session: ChatSession,
         io_handler: IOHandler,
     ) -> None:
@@ -202,7 +197,6 @@ class AccumulatorMode(BaseMode):
             chat_session: The active chat session to use for model calls.
             io_handler: The I/O handler for audio output.
         """
-        pass
 
     def run(self, chat_session: ChatSession, io_handler: IOHandler) -> None:
         """Accumulation loop: collect inputs until stop word, then process."""
@@ -214,7 +208,7 @@ class AccumulatorMode(BaseMode):
 
         self.on_start(chat_session, io_handler)
 
-        acumulado: List[str] = []
+        acumulado: list[str] = []
 
         while True:
             user_text = io_handler.get_user_input()

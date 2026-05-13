@@ -7,7 +7,6 @@ embedding interno de ChromaDB. Los datos se persisten en VECTOR_STORE_DIR.
 import logging
 
 import chromadb
-from typing import List
 
 from k_zero_core.core.config import VECTOR_STORE_DIR
 
@@ -46,8 +45,8 @@ class VectorStore:
     def store(
         self,
         collection_id: str,
-        chunks: List[str],
-        embeddings: List[List[float]],
+        chunks: list[str],
+        embeddings: list[list[float]],
     ) -> None:
         """
         Guarda los chunks y sus embeddings en una colección ChromaDB.
@@ -69,9 +68,9 @@ class VectorStore:
     def search(
         self,
         collection_id: str,
-        query_embedding: List[float],
+        query_embedding: list[float],
         top_k: int = 3,
-    ) -> List[str]:
+    ) -> list[str]:
         """
         Busca los chunks más relevantes para el embedding de consulta.
 

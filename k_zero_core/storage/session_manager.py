@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Any
 
 from k_zero_core.core.config import SESSIONS_DIR
 from k_zero_core.core.exceptions import StorageError
@@ -13,12 +13,22 @@ def _get_session_path(session_id: str) -> Path:
     return SESSIONS_DIR / f"{safe_id}.json"
 
 
+def _iter_session_data():
+    if not SESSIONS_DIR.exists():
+        return
+    for path in SESSIONS_DIR.glob("*.json"):
+        try:
+            yield path, json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+
+
 def save_session(
     session_id: str,
-    messages: List[Dict[str, Any]],
+    messages: list[dict[str, Any]],
     model_name: str,
     provider_name: str = "ollama",
-    metadata: Optional[Dict[str, Any]] = None,
+    metadata: dict[str, Any] | None = None,
 ) -> None:
     """
     Save the chat history, model, provider and mode-specific metadata to a JSON file.
@@ -44,7 +54,7 @@ def save_session(
         raise StorageError(f"Failed to save session '{session_id}': {e}")
 
 
-def load_session(session_id: str) -> Dict[str, Any]:
+def load_session(session_id: str) -> dict[str, Any]:
     """Load a specific session's data (messages, model, provider, metadata)."""
     path = _get_session_path(session_id)
     if not path.exists():
@@ -57,44 +67,28 @@ def load_session(session_id: str) -> Dict[str, Any]:
         raise StorageError(f"Failed to load session '{session_id}': {e}")
 
 
-def list_sessions() -> List[Dict[str, Any]]:
+def list_sessions() -> list[dict[str, Any]]:
     """List all available sessions with their metadata."""
-    if not SESSIONS_DIR.exists():
-        return []
-
-    sessions = []
-    for path in SESSIONS_DIR.glob("*.json"):
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            sessions.append({
-                "id": path.stem,
-                "updated_at": data.get("updated_at", ""),
-                "model": data.get("model", "unknown"),
-                "provider": data.get("provider", "ollama"),
-            })
-        except Exception:
-            continue
-
+    sessions = [
+        {
+            "id": path.stem,
+            "updated_at": data.get("updated_at", ""),
+            "model": data.get("model", "unknown"),
+            "provider": data.get("provider", "ollama"),
+        }
+        for path, data in _iter_session_data()
+    ]
     sessions.sort(key=lambda x: x["updated_at"], reverse=True)
     return sessions
 
 
 def get_all_active_collections() -> set[str]:
     """Retorna un set con todos los rag_collection_id usados en las sesiones actuales."""
-    if not SESSIONS_DIR.exists():
-        return set()
-
-    active_ids = set()
-    for path in SESSIONS_DIR.glob("*.json"):
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            metadata = data.get("metadata", {})
-            col_id = metadata.get("rag_collection_id")
-            if col_id:
-                active_ids.add(col_id)
-        except Exception:
-            continue
-    return active_ids
+    return {
+        col_id
+        for _path, data in _iter_session_data()
+        if (col_id := data.get("metadata", {}).get("rag_collection_id"))
+    }
 
 
 def delete_session(session_id: str) -> bool:

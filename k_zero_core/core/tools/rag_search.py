@@ -2,7 +2,6 @@
 Herramienta de búsqueda en base de datos vectorial local (Agentic RAG).
 """
 from dataclasses import dataclass
-from typing import Optional
 
 from k_zero_core.services.rag_engine import RagEngine
 
@@ -11,8 +10,8 @@ from k_zero_core.services.rag_engine import RagEngine
 class _ActiveRAGContext:
     """Estado RAG activo para la sesión CLI actual."""
 
-    engine: Optional[RagEngine] = None
-    collection_id: Optional[str] = None
+    engine: RagEngine | None = None
+    collection_id: str | None = None
 
     @property
     def is_ready(self) -> bool:
