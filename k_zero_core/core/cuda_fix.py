@@ -1,4 +1,5 @@
 import logging
+from contextlib import suppress
 
 
 dll_handles = []
@@ -18,16 +19,12 @@ def fix_cuda_paths():
     try:
         import site
         search_paths = []
-        try:
+        with suppress(Exception):
             search_paths.extend(site.getsitepackages())
-        except Exception:
-            pass
         
         if hasattr(site, "getusersitepackages"):
-            try:
+            with suppress(Exception):
                 search_paths.append(site.getusersitepackages())
-            except Exception:
-                pass
         
         for p in sys.path:
             if "site-packages" in p and p not in search_paths:

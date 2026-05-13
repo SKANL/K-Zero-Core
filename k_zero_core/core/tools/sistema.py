@@ -3,6 +3,7 @@ Herramienta: Información del sistema operativo y hardware.
 """
 import platform
 import shutil
+from contextlib import suppress
 from pathlib import Path
 
 import psutil
@@ -24,7 +25,7 @@ def informacion_sistema(detalle: str = "basico") -> str:
 
     lineas = ["=== Información del Sistema ===\n"]
 
-    try:
+    with suppress(Exception):
         import tomllib
         project_root = Path(__file__).resolve().parent.parent.parent.parent
         pyproject_path = project_root / "pyproject.toml"
@@ -33,8 +34,6 @@ def informacion_sistema(detalle: str = "basico") -> str:
             app_version = metadata.get("project", {}).get("version", "Desconocida")
             app_name = metadata.get("project", {}).get("name", "K-Zero-Core")
             lineas.append(f"Aplicación        : {app_name} (v{app_version})\n")
-    except Exception:
-        pass
 
     lineas.append(f"Sistema Operativo : {platform.system()} {platform.release()}")
     lineas.append(f"Versión SO        : {platform.version()}")
