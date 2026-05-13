@@ -1,18 +1,17 @@
 import secrets
 from dataclasses import dataclass, field
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any
 
-if TYPE_CHECKING:
-    from k_zero_core.services.providers.base_provider import AIProvider
+from k_zero_core.services.providers.base_provider import AIProvider
 
 
 @dataclass
 class ChatSession:
     """Manages the state and history of a single chat conversation."""
 
-    session_id: Optional[str] = None
+    session_id: str | None = None
     model: str = ""
-    provider: Optional["AIProvider"] = None
+    provider: AIProvider | None = None
     messages: list[dict[str, Any]] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)  # estado arbitrario por modo (ej. RAG collection_id)
 

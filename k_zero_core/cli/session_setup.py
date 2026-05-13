@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, Optional
+from typing import Any
 
 from k_zero_core.cli.menus import choose_model, choose_system_prompt
 from k_zero_core.services.chat_session import ChatSession
@@ -29,7 +29,7 @@ def _apply_memory_to_session(chat: ChatSession, memory_store: MemoryStore | None
 def setup_chat_session(
     plugin: Any,
     provider: Any,
-    session_id: Optional[str],
+    session_id: str | None,
     *,
     choose_model_func: Callable[[Any], str] = choose_model,
     choose_system_prompt_func: Callable[[str], str] = choose_system_prompt,

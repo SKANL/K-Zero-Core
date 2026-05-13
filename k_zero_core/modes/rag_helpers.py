@@ -1,7 +1,7 @@
 """Helpers internos para mantener DocumentRAGMode enfocado en el flujo CLI."""
 import hashlib
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from k_zero_core.services.rag_engine import RagEngine
 from k_zero_core.services.vector_store import VectorStore
@@ -21,10 +21,10 @@ def compute_collection_id(file_path: str) -> str:
 
 
 def build_rag_messages(
-    history: List[Dict[str, Any]],
-    relevant_chunks: List[str],
+    history: list[dict[str, Any]],
+    relevant_chunks: list[str],
     user_text: str,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Construye mensajes efímeros con contexto RAG sin mutar el historial limpio.
     """
@@ -49,9 +49,9 @@ def activate_rag_search(engine: RagEngine, collection_id: str) -> None:
 
 
 def restore_existing_rag_index(
-    metadata: Dict[str, Any],
+    metadata: dict[str, Any],
     vector_store: VectorStore,
-) -> Optional[Tuple[RagEngine, str, str]]:
+) -> tuple[RagEngine, str, str] | None:
     """
     Recupera un índice RAG persistido si la sesión tiene metadata válida.
 

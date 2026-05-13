@@ -3,7 +3,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Lock
-from typing import Any, Dict, List
+from typing import Any
 
 from k_zero_core.core.tools.toolsets import resolve_toolset
 from k_zero_core.core.source_tracking import extract_sources, missing_sources_message, requires_sources
@@ -15,12 +15,12 @@ class RoleDefinition:
     label: str
     result_header: str
     routing_description: str
-    tools: List[Callable]
+    tools: list[Callable]
 
 
-RoleTools = Dict[str, List[Callable]]
+RoleTools = dict[str, list[Callable]]
 
-ROLE_DEFINITIONS: Dict[str, RoleDefinition] = {
+ROLE_DEFINITIONS: dict[str, RoleDefinition] = {
     "investigador": RoleDefinition(
         key="investigador",
         label="Investigador",
@@ -121,7 +121,7 @@ def build_classifier_prompt(user_text: str) -> str:
     )
 
 
-def parse_roles(raw_roles: str) -> List[str]:
+def parse_roles(raw_roles: str) -> list[str]:
     """Normaliza la salida del clasificador a roles soportados y orden estable."""
     normalized = raw_roles.lower().replace("técnico", "tecnico")
     if "ninguno" in normalized:
@@ -129,7 +129,7 @@ def parse_roles(raw_roles: str) -> List[str]:
     return [role for role in ROLE_DEFINITIONS if role in normalized]
 
 
-def build_director_context(sub_results: List[str], roles: list[str] | None = None) -> str:
+def build_director_context(sub_results: list[str], roles: list[str] | None = None) -> str:
     """Construye el contexto privado que se agrega al turno del usuario."""
     if not sub_results:
         return ""
