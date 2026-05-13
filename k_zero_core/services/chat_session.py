@@ -1,6 +1,6 @@
 import secrets
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from k_zero_core.services.providers.base_provider import AIProvider
@@ -13,8 +13,8 @@ class ChatSession:
     session_id: Optional[str] = None
     model: str = ""
     provider: Optional["AIProvider"] = None
-    messages: List[Dict[str, Any]] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)  # estado arbitrario por modo (ej. RAG collection_id)
+    messages: list[dict[str, Any]] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)  # estado arbitrario por modo (ej. RAG collection_id)
 
     def __post_init__(self):
         if not self.session_id:
@@ -39,6 +39,6 @@ class ChatSession:
         """Appends an assistant message to the history."""
         self.messages.append({'role': 'assistant', 'content': content})
 
-    def load_history(self, messages: List[Dict[str, Any]]) -> None:
+    def load_history(self, messages: list[dict[str, Any]]) -> None:
         """Loads an existing message history."""
         self.messages = messages

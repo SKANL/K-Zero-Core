@@ -7,7 +7,6 @@ Provee:
 """
 
 import logging
-from typing import Optional
 
 from k_zero_core.audio.file_capture import FILE_SOURCES, transcribe_file_source
 from k_zero_core.modes.conversation_flow import EXIT_COMMANDS
@@ -39,7 +38,7 @@ class IOHandler:
         output_type: str,
         stt=None,
         tts=None,
-        stt_config: Optional[dict] = None,
+        stt_config: dict | None = None,
     ):
         """
         Args:
@@ -144,7 +143,7 @@ class IOHandler:
         Returns:
             Texto transcrito desde el audio capturado.
         """
-        device_index: Optional[int] = self.stt_config.get("device_index")
+        device_index: int | None = self.stt_config.get("device_index")
         is_loopback = source == "loopback"
 
         if source in _STREAMING_SOURCES:
