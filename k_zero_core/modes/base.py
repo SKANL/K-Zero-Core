@@ -21,7 +21,6 @@ class BaseMode(ABC):
     @abstractmethod
     def get_name(self) -> str:
         """Return the display name of the mode."""
-        pass
 
     @property
     def requires_llm(self) -> bool:
@@ -36,12 +35,10 @@ class BaseMode(ABC):
     @abstractmethod
     def get_description(self) -> str:
         """Return a short description of the mode."""
-        pass
 
     @abstractmethod
     def get_default_system_prompt(self) -> Optional[str]:
         """Return the fallback/default system prompt for this mode, if any."""
-        pass
 
     def get_voice(self) -> str:
         """Return the default voice ID for this mode."""
@@ -62,7 +59,6 @@ class BaseMode(ABC):
 
     def on_start(self, chat_session: ChatSession, io_handler: IOHandler) -> None:
         """Optional hook to execute logic before the main loop starts."""
-        pass
 
     def _stream_and_respond(
         self,
@@ -202,7 +198,6 @@ class AccumulatorMode(BaseMode):
             chat_session: The active chat session to use for model calls.
             io_handler: The I/O handler for audio output.
         """
-        pass
 
     def run(self, chat_session: ChatSession, io_handler: IOHandler) -> None:
         """Accumulation loop: collect inputs until stop word, then process."""

@@ -38,16 +38,13 @@ def informacion_sistema(detalle: str = "basico") -> str:
     except Exception:
         pass
 
-    # Sistema Operativo
     lineas.append(f"Sistema Operativo : {platform.system()} {platform.release()}")
     lineas.append(f"Versión SO        : {platform.version()}")
     lineas.append(f"Arquitectura      : {platform.machine()} ({platform.architecture()[0]})")
 
-    # Procesador
     procesador = platform.processor() or platform.uname().processor or "N/A"
     lineas.append(f"Procesador        : {procesador}")
 
-    # Python
     lineas.append(f"Python            : {platform.python_version()} ({platform.python_implementation()})")
 
     if normalized in {"basico", "disco", "todo"}:
@@ -59,10 +56,8 @@ def informacion_sistema(detalle: str = "basico") -> str:
     if normalized in {"ollama", "todo"}:
         lineas.extend(_ollama_lines())
 
-    # Directorio del usuario
     lineas.append(f"Directorio home   : {Path.home()}")
 
-    # Hostname
     lineas.append(f"Nombre del equipo  : {platform.node()}")
 
     return "\n".join(lineas)

@@ -25,7 +25,6 @@ class AIProvider(ABC):
     @abstractmethod
     def get_display_name(self) -> str:
         """Nombre visible en los menús (ej. 'Ollama (Local)')."""
-        pass
 
     @abstractmethod
     def get_available_models(self) -> List[str]:
@@ -35,7 +34,6 @@ class AIProvider(ABC):
         Raises:
             OllamaConnectionError o equivalente si el servicio no está disponible.
         """
-        pass
 
     @abstractmethod
     def stream_chat(
@@ -55,4 +53,3 @@ class AIProvider(ABC):
         Yields:
             Fragmentos de texto de la respuesta.
         """
-        pass

@@ -88,7 +88,6 @@ class DirectorMode(BaseMode):
 
                 labels = ", ".join(ROLE_DEFINITIONS[role].label for role in roles)
                 print(f"  -> Ejecutando especialistas en paralelo: {labels}...", end="", flush=True)
-            if roles:
                 print(" listo.")
                 
             # 3. Redactor (Síntesis)
