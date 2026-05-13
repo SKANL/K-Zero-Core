@@ -134,11 +134,8 @@ def _buscar_duckduckgo_api(query: str, _max_resultados: int = 5) -> str:
         if data.get("AbstractText"):
             return f"Resumen de DuckDuckGo:\n{data['AbstractText']}\nFuente: {data.get('AbstractURL')}"
         if data.get("RelatedTopics"):
-            salida = ["Temas relacionados:\n"]
-            for topic in data["RelatedTopics"][:5]:
-                if "Text" in topic:
-                    salida.append(f"- {topic['Text']}")
-            return "\n".join(salida)
+            related = [f"- {topic['Text']}" for topic in data["RelatedTopics"][:5] if "Text" in topic]
+            return "\n".join(["Temas relacionados:\n", *related])
         return "No se encontraron respuestas directas. Intenta usar palabras clave diferentes."
     except Exception as exc:
         return f"Error al buscar '{query}' en DuckDuckGo: {exc}"

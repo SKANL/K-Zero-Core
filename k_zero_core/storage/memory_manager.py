@@ -40,12 +40,11 @@ def _safe_session_id(session_id: str) -> str:
 
 
 def _scan_content(content: str) -> str | None:
-    for char in content:
-        if "\U000e0000" <= char <= "\U000e007f":
-            return f"Contenido bloqueado: carácter invisible U+{ord(char):04X}."
-    for pattern in _INJECTION_PATTERNS:
-        if pattern.search(content):
-            return "Contenido bloqueado: parece una instrucción de bypass o prompt injection."
+    invisible_char = next((char for char in content if "\U000e0000" <= char <= "\U000e007f"), None)
+    if invisible_char:
+        return f"Contenido bloqueado: carácter invisible U+{ord(invisible_char):04X}."
+    if any(pattern.search(content) for pattern in _INJECTION_PATTERNS):
+        return "Contenido bloqueado: parece una instrucción de bypass o prompt injection."
     return None
 
 

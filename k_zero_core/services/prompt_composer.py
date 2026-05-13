@@ -21,15 +21,11 @@ _MEMORY_CONTEXT_RE = re.compile(
 
 def sanitize_prompt_text(text: str) -> str:
     """Elimina caracteres invisibles usados para ocultar instrucciones."""
-    sanitized_chars: list[str] = []
-    for char in text:
-        codepoint = ord(char)
-        if 0xE0000 <= codepoint <= 0xE007F:
-            continue
-        if 0xE000 <= codepoint <= 0xF8FF:
-            continue
-        sanitized_chars.append(char)
-    return "".join(sanitized_chars)
+    return "".join(
+        char
+        for char in text
+        if not (0xE000 <= ord(char) <= 0xF8FF or 0xE0000 <= ord(char) <= 0xE007F)
+    )
 
 
 def strip_memory_context(prompt: str) -> str:

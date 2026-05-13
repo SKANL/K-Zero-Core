@@ -107,8 +107,9 @@ def execute_tool_calls(
                 if intent_key is not None:
                     seen_write_intents.add(intent_key)
             except Exception as exc:
-                if spec.validation_error(arguments):
-                    result = f"Argumentos inválidos para '{function_name}': {spec.validation_error(arguments)}"
+                validation_error = spec.validation_error(arguments)
+                if validation_error:
+                    result = f"Argumentos inválidos para '{function_name}': {validation_error}"
                 else:
                     result = f"Error ejecutando herramienta: {exc}"
 

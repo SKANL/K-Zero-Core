@@ -8,16 +8,13 @@ def _extraer_numeros(datos: dict | list | int | float | str | bool) -> list[floa
     """
     Recorre recursivamente una estructura de datos y extrae todos los valores numéricos.
     """
-    numeros = []
     if isinstance(datos, dict):
-        for valor in datos.values():
-            numeros.extend(_extraer_numeros(valor))
-    elif isinstance(datos, list):
-        for valor in datos:
-            numeros.extend(_extraer_numeros(valor))
-    elif isinstance(datos, (int, float)) and not isinstance(datos, bool):
-        numeros.append(float(datos))
-    return numeros
+        return [numero for valor in datos.values() for numero in _extraer_numeros(valor)]
+    if isinstance(datos, list):
+        return [numero for valor in datos for numero in _extraer_numeros(valor)]
+    if isinstance(datos, (int, float)) and not isinstance(datos, bool):
+        return [float(datos)]
+    return []
 
 def analizar_valores_json(ruta_archivo: str) -> str:
     """Extrae todos los números de un archivo JSON (sin importar su estructura) y calcula el valor máximo, mínimo y la mediana.
