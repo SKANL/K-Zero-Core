@@ -5,7 +5,7 @@ import os
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any, Type
+from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
@@ -52,7 +52,7 @@ class ToolSpec:
     description: str = ""
     requires_env: tuple[str, ...] = field(default_factory=tuple)
     permission: ToolPermission = ToolPermission.READ_ONLY
-    args_schema: Type[BaseModel] | None = None
+    args_schema: type[BaseModel] | None = None
     toolset: str = "general"
     max_inline_chars: int | None = None
     audience: ToolAudience = ToolAudience.USER

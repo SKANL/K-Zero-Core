@@ -7,8 +7,6 @@ Para agregar un nuevo modo:
 
 No necesitas modificar ningún otro archivo (console.py y menus.py se actualizan solos).
 """
-from typing import Type
-
 from k_zero_core.modes.base import BaseMode
 from k_zero_core.modes.classic import ClassicMode
 from k_zero_core.modes.companion import VoiceCompanionMode
@@ -20,7 +18,7 @@ from k_zero_core.modes.transcription_only import TranscriptionOnlyMode
 from k_zero_core.modes.director import DirectorMode
 
 # El orden de inserción determina el orden en el menú.
-MODE_REGISTRY: dict[str, Type[BaseMode]] = {
+MODE_REGISTRY: dict[str, type[BaseMode]] = {
     "classic":        ClassicMode,
     "transcription":  TranscriptionOnlyMode,
     "companion":      VoiceCompanionMode,

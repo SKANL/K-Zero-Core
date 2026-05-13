@@ -6,8 +6,6 @@ Para agregar un nuevo proveedor (ej. Groq, OpenAI, Anthropic):
   2. Importa la clase aquí y agrégala al PROVIDER_REGISTRY
   3. No necesitas modificar ningún otro archivo del proyecto
 """
-from typing import Type
-
 from k_zero_core.services.providers.base_provider import AIProvider
 from k_zero_core.services.providers.declarative import (
     DeclarativeOpenAIProvider,
@@ -16,7 +14,7 @@ from k_zero_core.services.providers.declarative import (
 )
 from k_zero_core.services.providers.ollama_provider import OllamaProvider
 
-PROVIDER_REGISTRY: dict[str, Type[AIProvider]] = {
+PROVIDER_REGISTRY: dict[str, type[AIProvider]] = {
     OllamaProvider.key: OllamaProvider,
 }
 
