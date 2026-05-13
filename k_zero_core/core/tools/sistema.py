@@ -61,7 +61,6 @@ def informacion_sistema(detalle: str = "basico") -> str:
 
 
 def _disk_lines() -> list[str]:
-    lineas: list[str] = []
     gigabyte = 1024 ** 3
     try:
         disco = shutil.disk_usage(Path.home())
@@ -69,13 +68,12 @@ def _disk_lines() -> list[str]:
         used_gb = disco.used / gigabyte
         free_gb = disco.free / gigabyte
         uso_pct = (disco.used / disco.total) * 100
-        lineas.append(
+        return [
             f"Disco principal   : {used_gb:.1f} GB usados / {total_gb:.1f} GB totales "
             f"({free_gb:.1f} GB libres, {uso_pct:.0f}% ocupado)"
-        )
+        ]
     except Exception:
-        lineas.append("Disco principal   : No disponible")
-    return lineas
+        return ["Disco principal   : No disponible"]
 
 
 def _hardware_lines() -> list[str]:
@@ -117,14 +115,14 @@ def _detect_gpu() -> str:
 
 
 def _ollama_lines() -> list[str]:
-    lineas = ["Ollama            : No disponible"]
     try:
         import ollama
 
         models = ollama.list().get("models", [])
         names = [model.get("model") or model.get("name", "") for model in models]
-        lineas[0] = "Ollama            : Disponible"
-        lineas.append("Modelos Ollama    : " + (", ".join(name for name in names if name) or "sin modelos listados"))
+        return [
+            "Ollama            : Disponible",
+            "Modelos Ollama    : " + (", ".join(name for name in names if name) or "sin modelos listados"),
+        ]
     except Exception as exc:
-        lineas.append(f"Ollama detalle    : {exc}")
-    return lineas
+        return ["Ollama            : No disponible", f"Ollama detalle    : {exc}"]

@@ -1,11 +1,10 @@
 import json
-from typing import Dict, Optional
 
 from k_zero_core.core.config import PROMPTS_FILE
 from k_zero_core.core.exceptions import StorageError
 
 
-def load_all_prompts() -> Dict[str, str]:
+def load_all_prompts() -> dict[str, str]:
     """Carga todos los prompts personalizados del usuario desde el archivo JSON local."""
     if not PROMPTS_FILE.exists():
         return {}
@@ -55,7 +54,7 @@ def delete_prompt(name: str) -> bool:
         raise StorageError(f"Error al eliminar el prompt '{name}': {e}")
 
 
-def get_prompt(name: str) -> Optional[str]:
+def get_prompt(name: str) -> str | None:
     """
     Recupera un prompt específico por nombre.
 
