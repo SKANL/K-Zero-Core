@@ -32,15 +32,9 @@ def make_serializable(obj: Any) -> Any:
 
 def _normalize_tool_specs(tools: list[ToolCallable]) -> list[ToolSpec]:
     """Convierte callables y ToolSpec al mismo contrato interno."""
-    specs: list[ToolSpec] = []
-    callables: list[Callable] = []
-    for tool in tools:
-        if isinstance(tool, ToolSpec):
-            specs.append(tool)
-        else:
-            callables.append(tool)
-    specs.extend(build_tool_specs(callables))
-    return specs
+    specs = [tool for tool in tools if isinstance(tool, ToolSpec)]
+    callables = [tool for tool in tools if not isinstance(tool, ToolSpec)]
+    return [*specs, *build_tool_specs(callables)]
 
 
 def find_tool_by_name(tools: list[ToolCallable], name: str) -> ToolSpec | None:

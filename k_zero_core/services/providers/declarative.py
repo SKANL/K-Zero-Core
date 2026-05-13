@@ -120,15 +120,9 @@ class DeclarativeOpenAIProvider(AIProvider):
         return headers
 
     def _tool_specs(self, tools: List) -> list[ToolSpec]:
-        specs: list[ToolSpec] = []
-        callables = []
-        for tool in tools:
-            if isinstance(tool, ToolSpec):
-                specs.append(tool)
-            else:
-                callables.append(tool)
-        specs.extend(build_tool_specs(callables))
-        return specs
+        specs = [tool for tool in tools if isinstance(tool, ToolSpec)]
+        callables = [tool for tool in tools if not isinstance(tool, ToolSpec)]
+        return [*specs, *build_tool_specs(callables)]
 
     def _openai_tools(self, tools: List) -> list[dict[str, Any]]:
         return [
