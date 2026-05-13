@@ -8,18 +8,14 @@ from k_zero_core.core.tool_executor import execute_tool_calls
 from k_zero_core.services.providers.base_provider import AIProvider
 
 
-def _retryable_ollama_call(func, *args, **kwargs):
-    """Ejecuta una llamada a Ollama con backoff para cargas lentas del modelo local."""
-    return _retryable_ollama_call_impl(func, *args, **kwargs)
-
-
 @retry(
     retry=retry_if_exception_type(Exception),
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=0.1, min=0.1, max=1),
     reraise=True,
 )
-def _retryable_ollama_call_impl(func, *args, **kwargs):
+def _retryable_ollama_call(func, *args, **kwargs):
+    """Ejecuta una llamada a Ollama con backoff para cargas lentas del modelo local."""
     return func(*args, **kwargs)
 
 
